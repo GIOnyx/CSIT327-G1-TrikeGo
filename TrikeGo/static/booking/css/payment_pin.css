@@ -1,0 +1,347 @@
+/**
+ * Payment PIN Verification Styles
+ * Styling for driver and rider payment verification UI
+ */
+
+/* Payment PIN Section */
+.payment-pin-section {
+    margin-top: 20px;
+    padding: 20px;
+    border: 2px solid #007bff;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #f5f7fa 0%, #e8eef5 100%);
+}
+
+.pin-info {
+    margin-bottom: 15px;
+}
+
+.pin-info p {
+    margin: 5px 0;
+}
+
+.pin-info .text-muted {
+    font-size: 0.9em;
+    color: #6c757d;
+}
+
+/* PIN Generate Container */
+.pin-generate-container {
+    text-align: center;
+}
+
+.generate-pin-btn,
+.regenerate-pin-btn {
+    font-size: 1.1em;
+    padding: 12px 25px;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.generate-pin-btn:hover,
+.regenerate-pin-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+}
+
+/* PIN Display Container */
+.pin-display-container {
+    text-align: center;
+}
+
+.pin-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 25px;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    color: white;
+}
+
+.pin-label {
+    font-size: 1.1em;
+    margin-bottom: 10px;
+    font-weight: 600;
+}
+
+.pin-value-display {
+    background: rgba(255, 255, 255, 0.2);
+    padding: 20px;
+    border-radius: 12px;
+    margin: 15px 0;
+}
+
+.pin-number {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 3em;
+    font-weight: bold;
+    letter-spacing: 0.5em;
+    margin: 0;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.pin-expiry {
+    font-size: 1.2em;
+    margin: 15px 0;
+    font-weight: 500;
+}
+
+.pin-countdown {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 1.3em;
+    font-weight: bold;
+    color: #ffc107;
+}
+
+.regenerate-pin-btn {
+    margin-top: 15px;
+    background-color: rgba(255, 255, 255, 0.3);
+    border: 2px solid white;
+    color: white;
+}
+
+.regenerate-pin-btn:hover {
+    background-color: rgba(255, 255, 255, 0.5);
+}
+
+/* Payment Verified */
+.payment-verified-container {
+    text-align: center;
+}
+
+.alert-success {
+    background-color: #d4edda;
+    border: 2px solid #28a745;
+    border-radius: 10px;
+    padding: 20px;
+    color: #155724;
+}
+
+.alert-success h4 {
+    margin: 0 0 10px 0;
+    font-size: 1.5em;
+}
+
+.alert-success p {
+    margin: 0;
+    font-size: 1.1em;
+}
+
+/* Rider Payment Verification Section */
+.payment-verification-section {
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fare-display {
+    text-align: center;
+    margin: 15px 0;
+}
+
+.waiting-for-pin {
+    text-align: center;
+}
+
+.spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 3px solid rgba(0, 0, 0, 0.1);
+    border-top: 3px solid #007bff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* PIN Input Styling */
+.pin-input {
+    transition: all 0.3s ease;
+}
+
+.pin-input:focus {
+    outline: none;
+    border-color: #0056b3 !important;
+    box-shadow: 0 0 15px rgba(0, 123, 255, 0.5);
+}
+
+.pin-input::placeholder {
+    color: #ccc;
+}
+
+/* Error Alert */
+.pin-error {
+    animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+    20%, 40%, 60%, 80% { transform: translateX(5px); }
+}
+
+/* Success Animation */
+.payment-verified {
+    animation: successPulse 1s ease-in-out 2;
+}
+
+@keyframes successPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+/* Button Styles */
+.btn {
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.btn-primary {
+    background-color: #007bff;
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #0056b3;
+}
+
+.btn-success {
+    background-color: #28a745;
+    color: white;
+}
+
+.btn-success:hover {
+    background-color: #218838;
+}
+
+.btn-danger {
+    background-color: #dc3545;
+    color: white;
+}
+
+.btn-danger:hover {
+    background-color: #c82333;
+}
+
+.btn-secondary {
+    background-color: #6c757d;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background-color: #5a6268;
+}
+
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 0.9em;
+}
+
+.btn-lg {
+    padding: 15px 30px;
+    font-size: 1.2em;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .pin-number {
+        font-size: 2em;
+        letter-spacing: 0.3em;
+    }
+    
+    .pin-input {
+        font-size: 1.5em !important;
+        letter-spacing: 0.5em !important;
+    }
+    
+    .payment-pin-section {
+        padding: 15px;
+    }
+    
+    .pin-card {
+        padding: 20px;
+    }
+}
+
+/* Text Utilities */
+.text-center {
+    text-align: center;
+}
+
+.text-muted {
+    color: #6c757d;
+}
+
+.alert {
+    padding: 15px;
+    margin: 15px 0;
+    border-radius: 8px;
+}
+
+.alert-danger {
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+}
+
+.alert-info {
+    background-color: #d1ecf1;
+    border: 1px solid #bee5eb;
+    color: #0c5460;
+}
+
+.alert-warning {
+    background-color: #fff3cd;
+    border: 1px solid #ffeaa7;
+    color: #856404;
+}
+
+/* Form Utilities */
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-text {
+    display: block;
+    margin-top: 5px;
+    font-size: 0.9em;
+}
+
+label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 600;
+}
+
+/* Loading States */
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.btn.loading::after {
+    content: '...';
+    animation: dots 1.5s steps(4, end) infinite;
+}
+
+@keyframes dots {
+    0%, 20% { content: '.'; }
+    40% { content: '..'; }
+    60%, 100% { content: '...'; }
+}

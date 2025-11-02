@@ -47,6 +47,15 @@ class Booking(models.Model):
     end_time = models.DateTimeField(null=True, blank=True)
     fare = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
     
+    # Cash payment verification fields
+    payment_pin_hash = models.CharField(max_length=128, null=True, blank=True, help_text="Hashed 4-digit PIN for cash payment verification")
+    payment_pin_created_at = models.DateTimeField(null=True, blank=True, help_text="When the PIN was generated")
+    payment_pin_expires_at = models.DateTimeField(null=True, blank=True, help_text="PIN expiry time (5 minutes)")
+    payment_pin_attempts = models.PositiveSmallIntegerField(default=0, help_text="Number of failed PIN verification attempts")
+    payment_pin_max_attempts = models.PositiveSmallIntegerField(default=3, help_text="Maximum allowed PIN attempts")
+    payment_verified = models.BooleanField(default=False, help_text="Whether cash payment has been verified via PIN")
+    payment_verified_at = models.DateTimeField(null=True, blank=True, help_text="When payment was verified")
+    
     # Estimated values
     estimated_distance = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)  # in km
     estimated_duration = models.IntegerField(null=True, blank=True)  # in minutes
@@ -93,6 +102,24 @@ class Booking(models.Model):
     @property
     def is_active(self):
         return self.status in ['pending', 'accepted', 'on_the_way', 'started']
+    
+    @property
+    def is_pin_valid(self):
+        """Check if the payment PIN is still valid (not expired and attempts remaining)"""
+        if not self.payment_pin_hash or not self.payment_pin_expires_at:
+            return False
+        if timezone.now() > self.payment_pin_expires_at:
+            return False
+        if self.payment_pin_attempts >= self.payment_pin_max_attempts:
+            return False
+        return True
+    
+    @property
+    def pin_attempts_remaining(self):
+        """Get remaining PIN verification attempts"""
+        if not self.payment_pin_hash:
+            return 0
+        return max(0, self.payment_pin_max_attempts - self.payment_pin_attempts)
 
     class Meta:
         indexes = [

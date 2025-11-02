@@ -296,12 +296,23 @@ class DriverActiveBookings(View):
         if not request.user.is_authenticated or request.user.trikego_user != 'D':
             return redirect('user:landing')
 
+        # Include 'completed' bookings that haven't been payment verified yet
         active_bookings = Booking.objects.filter(
             driver=request.user,
             status__in=['accepted', 'on_the_way', 'started']
         ).order_by('-booking_time')
+        
+        # Also get completed bookings awaiting payment verification
+        pending_payment_bookings = Booking.objects.filter(
+            driver=request.user,
+            status='completed',
+            payment_verified=False
+        ).order_by('-booking_time')
+        
+        # Combine both querysets
+        bookings = list(active_bookings) + list(pending_payment_bookings)
 
-        return render(request, self.template_name, {'active_bookings': active_bookings})
+        return render(request, self.template_name, {'active_bookings': bookings})
 
 
 @require_POST
@@ -439,13 +450,24 @@ class RiderDashboard(View):
             status__in=['completed', 'cancelled_by_rider', 'cancelled_by_driver', 'no_driver_found']
         ).order_by('-booking_time')
 
+        latest_booking = (
+            Booking.objects
+            .filter(rider=request.user)
+            .order_by('-booking_time', '-id')
+            .first()
+        )
+        latest_unpaid_booking = None
+        if latest_booking and latest_booking.status == 'completed' and not latest_booking.payment_verified:
+            latest_unpaid_booking = latest_booking
+
         return {
             'user': request.user,
             'rider_profile': profile,
             'active_bookings': active_bookings,
             'ride_history': ride_history,
             'settings': settings,
-            'booking_form': booking_form
+            'booking_form': booking_form,
+            'latest_unpaid_booking': latest_unpaid_booking,
         }
 
     def get(self, request):
@@ -458,6 +480,20 @@ class RiderDashboard(View):
         if not request.user.is_authenticated or request.user.trikego_user != 'R':
             return redirect('user:landing')
         
+        # Restrict: rider must settle the most recent completed trip before creating a new one
+        latest_booking = (
+            Booking.objects
+            .filter(rider=request.user)
+            .order_by('-booking_time', '-id')
+            .first()
+        )
+        if latest_booking and latest_booking.status == 'completed' and not latest_booking.payment_verified:
+            messages.error(
+                request,
+                f'Please verify the cash payment for Trip #{latest_booking.id} before booking another ride.'
+            )
+            return redirect('user:rider_dashboard')
+
         # Restrict: rider can only have one active booking
         active_qs = Booking.objects.filter(
             rider=request.user,
@@ -534,6 +570,19 @@ class RiderDashboard(View):
 
             booking.save()
             print(f'Booking saved with id={booking.id} for rider={request.user.username}')
+            
+            # Verify the booking was actually saved to database
+            from django.db import connection
+            connection.cursor().execute("COMMIT")  # Force commit
+            
+            # Verify it exists in DB
+            try:
+                saved_booking = Booking.objects.get(id=booking.id)
+                print(f'✅ Verified booking {booking.id} exists in database after save')
+            except Booking.DoesNotExist:
+                print(f'❌ ERROR: Booking {booking.id} NOT found in database after save!')
+                raise Exception(f'Booking {booking.id} was not saved to database')
+            
             messages.success(request, 'Your booking has been created successfully!')
             return redirect('user:rider_dashboard')
         except Exception as e:
@@ -950,3 +999,60 @@ def get_driver_active_booking(request):
             'booking_id': None
         })
 
+
+@login_required
+def get_rider_trip_history(request):
+    """
+    Get all bookings made by the rider (all statuses).
+    Returns trip history with payment status.
+    """
+    if request.user.trikego_user != 'R':
+        return JsonResponse({'status': 'error', 'message': 'Rider only'}, status=403)
+    
+    bookings = Booking.objects.filter(
+        rider=request.user
+    ).select_related('driver').order_by('-booking_time')[:50]  # Last 50 trips
+    
+    trips = []
+    for booking in bookings:
+        trips.append({
+            'id': booking.id,
+            'pickup': booking.pickup_address,
+            'destination': booking.destination_address,
+            'fare': float(booking.fare) if booking.fare else 0,
+            'status': booking.status,
+            'date': booking.booking_time.strftime('%b %d, %Y %I:%M %p'),
+            'paymentVerified': booking.payment_verified,
+            'driverName': booking.driver.get_full_name() if booking.driver else 'N/A',
+        })
+    
+    return JsonResponse({'status': 'success', 'trips': trips})
+
+
+@login_required
+def get_driver_trip_history(request):
+    """
+    Get all accepted bookings by the driver (not declined ones).
+    Returns trip history with payment status.
+    """
+    if request.user.trikego_user != 'D':
+        return JsonResponse({'status': 'error', 'message': 'Driver only'}, status=403)
+    
+    bookings = Booking.objects.filter(
+        driver=request.user
+    ).select_related('rider').order_by('-booking_time')[:50]  # Last 50 trips
+    
+    trips = []
+    for booking in bookings:
+        trips.append({
+            'id': booking.id,
+            'pickup': booking.pickup_address,
+            'destination': booking.destination_address,
+            'fare': float(booking.fare) if booking.fare else 0,
+            'status': booking.status,
+            'date': booking.booking_time.strftime('%b %d, %Y %I:%M %p'),
+            'paymentVerified': booking.payment_verified,
+            'riderName': booking.rider.get_full_name() if booking.rider else 'Unknown',
+        })
+    
+    return JsonResponse({'status': 'success', 'trips': trips})

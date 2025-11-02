@@ -2,7 +2,9 @@ from typing import Dict, List, Optional, Tuple
 
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from django.utils import timezone
-
+from django.contrib.auth.hashers import make_password, check_password
+from datetime import timedelta
+import random
 import math
 
 
@@ -661,4 +663,57 @@ def build_driver_itinerary(driver_user) -> Dict[str, object]:
         'status': 'success',
         'itinerary': itinerary,
     }
+
+
+# ============================================================================
+# Payment PIN Verification Utilities
+# ============================================================================
+
+def generate_payment_pin() -> str:
+    """
+    Generate a random 4-digit PIN for payment verification.
+    Returns the PIN as a string (e.g., "1234").
+    """
+    return f"{random.randint(0, 9999):04d}"
+
+
+def hash_payment_pin(pin: str) -> str:
+    """
+    Hash the payment PIN using Django's password hasher.
+    
+    Args:
+        pin: 4-digit PIN as a string
+        
+    Returns:
+        Hashed PIN string
+    """
+    return make_password(pin)
+
+
+def verify_payment_pin(pin: str, pin_hash: str) -> bool:
+    """
+    Verify a payment PIN against its hash.
+    
+    Args:
+        pin: The PIN to verify (4-digit string)
+        pin_hash: The stored hashed PIN
+        
+    Returns:
+        True if PIN matches, False otherwise
+    """
+    return check_password(pin, pin_hash)
+
+
+def get_pin_expiry_time(minutes: int = 5) -> timezone.datetime:
+    """
+    Get the expiry time for a payment PIN.
+    
+    Args:
+        minutes: Number of minutes until expiry (default 5)
+        
+    Returns:
+        DateTime object representing expiry time
+    """
+    return timezone.now() + timedelta(minutes=minutes)
+
 

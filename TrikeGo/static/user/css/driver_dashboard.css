@@ -395,11 +395,10 @@ body.show-rides .logout-form { display: none !important; }
    it respects the compact rail (72px) and the expanded rail (320px) via body.sidebar-expanded. */
 .driver-info-card {
   position: fixed;
-  left: calc(72px + 16px); /* compact rail + padding */
+  left: 108px; /* Default: beside sidebar with 12px gap */
   bottom: 20px;
   z-index: 2200;
   width: 320px;
-  margin-left: 20px;
   padding: 16px 18px;
   background: rgba(15, 23, 36, 0.96);
   border-radius: 18px;
@@ -409,8 +408,18 @@ body.show-rides .logout-form { display: none !important; }
   box-sizing: border-box;
   -webkit-backdrop-filter: blur(3px);
   backdrop-filter: blur(3px);
+  transition: left 0.3s ease; /* Smooth movement when history opens */
 }
-body.sidebar-expanded .driver-info-card { left: calc(320px + 16px); }
+
+/* When sidebar expands (not currently used but kept for compatibility) */
+body.sidebar-expanded .driver-info-card { 
+  left: calc(320px + 16px); 
+}
+
+/* When history panel is open, move itinerary to the right */
+body.history-panel-open .driver-info-card {
+  left: 508px; /* 108px (sidebar+gap) + 380px (history) + 20px (gap) */
+}
 
 .driver-info-card .itinerary-summary,
 .driver-info-card .itinerary-full { color: #f4f7ff; }
@@ -449,6 +458,72 @@ body.sidebar-expanded .driver-info-card { left: calc(320px + 16px); }
   box-shadow: 0 4px 10px rgba(11,99,214,0.12);
 }
 .chat-btn:hover { background:#0954b2; }
+
+/* Sidebar history section */
+.sidebar-history {
+  background: #fff;
+  color: #333;
+  display: none;
+}
+
+.sidebar-history strong {
+  color: #0b2340;
+  font-size: 16px;
+}
+
+.history-back-link {
+  color: #0b63d6;
+  text-decoration: none;
+  padding: 10px;
+  display: block;
+  text-align: center;
+  font-weight: 600;
+}
+
+.history-back-link:hover {
+  text-decoration: underline;
+}
+
+/* Driver History Overlay Panel Styles */
+#driver-history-panel {
+  animation: slideInLeft 0.3s ease-out;
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    left: 60px;
+  }
+  to {
+    opacity: 1;
+    left: 96px;
+  }
+}
+
+#close-driver-history-panel:hover {
+  background: rgba(255,255,255,0.3) !important;
+}
+
+#close-driver-history-panel-bottom:hover {
+  background: #0a1f38 !important;
+}
+
+#history-trips-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+#history-trips-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#history-trips-list::-webkit-scrollbar-thumb {
+  background: #cbd5e0;
+  border-radius: 3px;
+}
+
+#history-trips-list::-webkit-scrollbar-thumb:hover {
+  background: #a0aec0;
+}
 
 /* Ensure booking card sits above map on small screens as well */
 @media (max-width: 800px) {

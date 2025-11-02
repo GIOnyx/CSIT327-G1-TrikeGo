@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Active Bookings - TrikeGo</title>
     <link rel="stylesheet" href="{% static 'booking/css/driver_active_books.css' %}">
+    <link rel="stylesheet" href="{% static 'booking/css/payment_pin.css' %}">
     
     <!-- NEW STYLES for the location prompt -->
     <style>
@@ -87,17 +88,63 @@
                     <p><strong>Destination:</strong> {{ booking.destination_address }}</p>
                     <p><strong>Status:</strong> {{ booking.status|capfirst }}</p>
                     <p><strong>Requested:</strong> {{ booking.booking_time|date:"M d, Y - H:i" }}</p>
+                    {% if booking.fare %}
+                    <p><strong>Fare:</strong> ₱{{ booking.fare }}</p>
+                    {% endif %}
+
+                    <!-- Payment PIN Section for Completed Trips (awaiting payment verification) -->
+                    {% if booking.status == 'completed' and not booking.payment_verified %}
+                    <div class="payment-pin-section" id="payment-section-{{ booking.id }}" data-booking-id="{{ booking.id }}" data-fare="{{ booking.fare|default:'0.00' }}">
+                        {% if not booking.payment_verified %}
+                            <div class="pin-generate-container" id="pin-gen-{{ booking.id }}">
+                                <div class="pin-info">
+                                    <p><strong>💰 Cash Payment Verification</strong></p>
+                                    <p class="text-muted">Generate a PIN to confirm cash payment</p>
+                                </div>
+                                <button type="button" class="btn btn-primary generate-pin-btn" data-booking-id="{{ booking.id }}">
+                                    🔑 Generate Payment PIN
+                                </button>
+                            </div>
+                            
+                            <div class="pin-display-container" id="pin-display-{{ booking.id }}" style="display: none;">
+                                <div class="pin-card">
+                                    <p class="pin-label">📢 Share this PIN with rider:</p>
+                                    <div class="pin-value-display">
+                                        <h2 class="pin-number" id="pin-value-{{ booking.id }}">----</h2>
+                                    </div>
+                                    <p class="pin-expiry">
+                                        ⏱️ Expires in: <span class="pin-countdown" id="countdown-{{ booking.id }}">5:00</span>
+                                    </p>
+                                    <p class="text-muted">Waiting for rider to confirm...</p>
+                                    <button type="button" class="btn btn-sm btn-secondary regenerate-pin-btn" data-booking-id="{{ booking.id }}">
+                                        🔄 Regenerate PIN
+                                    </button>
+                                </div>
+                            </div>
+                        {% else %}
+                            <div class="payment-verified-container">
+                                <div class="alert-success">
+                                    <h4>✅ Payment Verified!</h4>
+                                    <p>Trip completed successfully.</p>
+                                </div>
+                            </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
 
                     <div class="actions">
-                        <form method="POST" action="{% url 'user:complete_booking' booking.id %}">
-                            {% csrf_token %}
-                            <button type="submit" class="btn btn-success">Complete</button>
-                        </form>
-
+                        {% if booking.status == 'completed' and not booking.payment_verified %}
+                        <!-- No action buttons needed - payment verification is the only action -->
+                        <p class="text-muted" style="margin: 10px 0; font-size: 14px;">
+                            <i class="fas fa-info-circle"></i> Generate PIN above to complete this booking
+                        </p>
+                        {% elif booking.status != 'completed' %}
+                        <!-- For bookings that are still in progress -->
                         <form method="POST" action="{% url 'user:cancel_accepted_booking' booking.id %}">
                             {% csrf_token %}
-                            <button type="submit" class="btn btn-danger">Cancel</button>
+                            <button type="submit" class="btn btn-danger">Cancel Booking</button>
                         </form>
+                        {% endif %}
                     </div>
                 </li>
                 {% endfor %}
@@ -187,6 +234,9 @@
             }
         });
     </script>
+    
+    <!-- Payment PIN Verification Script -->
+    <script src="{% static 'booking/js/driver_payment_pin.js' %}"></script>
 </body>
 </html>
 

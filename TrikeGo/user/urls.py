@@ -30,6 +30,11 @@ urlpatterns = [
     path('api/rider/update_location/', views.update_rider_location, name='update_rider_location'),
     path('api/booking/<int:booking_id>/route_info/', views.get_route_info, name='get_route_info'),
     path('api/driver/active-booking/', views.get_driver_active_booking, name='get_driver_active_booking'),
+    
+    # --- TRIP HISTORY API URLS ---
+    path('api/rider/trip-history/', views.get_rider_trip_history, name='rider_trip_history'),
+    path('api/driver/trip-history/', views.get_driver_trip_history, name='driver_trip_history'),
+    
     # Custom logout that redirects to landing (accepts POST)
     path('logout/', views.logout_view, name='logout'),
 ]
