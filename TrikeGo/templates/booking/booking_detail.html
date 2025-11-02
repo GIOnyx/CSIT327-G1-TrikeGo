@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <title>Booking Status - TrikeGo</title>
     <link rel="stylesheet" href="{% static 'booking/css/booking.css' %}?v=2" />
+    <link rel="stylesheet" href="{% static 'booking/css/payment_pin.css' %}" />
 </head>
 <body>
     <div class="container">
@@ -14,7 +15,75 @@
             <p><strong>From:</strong> {{ booking.pickup_address }}</p>
             <p><strong>To:</strong> {{ booking.destination_address }}</p>
             <p><strong>Status:</strong> <span class="status-{{ booking.status }}">{{ booking.get_status_display }}</span></p>
+            {% if booking.fare %}
+            <p><strong>Fare:</strong> ₱{{ booking.fare }}</p>
+            {% endif %}
         </div>
+
+        <!-- Payment PIN Verification Section (Rider View) -->
+        {% if user == booking.rider and booking.status == 'started' %}
+        <div class="payment-verification-section" id="payment-verification-{{ booking.id }}" style="margin-top: 20px; padding: 20px; border: 1px solid #ddd; border-radius: 8px; background: #f8f9fa;">
+            {% if not booking.payment_verified %}
+                <!-- Waiting for PIN -->
+                <div class="waiting-for-pin" id="waiting-pin-{{ booking.id }}">
+                    <h3>💵 Cash Payment Confirmation</h3>
+                    <p>Trip completed! Please pay the driver in cash.</p>
+                    <div class="fare-display" style="background: #e7f3ff; padding: 15px; border-radius: 6px; margin: 10px 0;">
+                        <strong style="font-size: 1.2em;">Amount to Pay: ₱{{ booking.fare|default:'0.00' }}</strong>
+                    </div>
+                    <p class="text-center text-muted">
+                        <span class="spinner"></span>
+                        Waiting for driver to generate PIN...
+                    </p>
+                </div>
+
+                <!-- PIN Entry Form -->
+                <div class="pin-entry-form" id="pin-entry-{{ booking.id }}" style="display: none;">
+                    <h3>💵 Cash Payment Confirmation</h3>
+                    <div class="fare-display" style="background: #fff3cd; padding: 15px; border-radius: 6px; margin: 10px 0;">
+                        <strong style="font-size: 1.2em;">Amount Paid: ₱{{ booking.fare|default:'0.00' }}</strong>
+                    </div>
+                    <p>After paying, enter the 4-digit PIN provided by the driver:</p>
+                    
+                    <div class="form-group" style="margin: 20px 0;">
+                        <label for="pin-input-{{ booking.id }}"><strong>4-Digit PIN</strong></label>
+                        <input 
+                            type="text" 
+                            id="pin-input-{{ booking.id }}"
+                            class="pin-input"
+                            placeholder="_ _ _ _"
+                            maxlength="4"
+                            pattern="[0-9]{4}"
+                            inputmode="numeric"
+                            autocomplete="off"
+                            style="width: 100%; padding: 15px; font-size: 2em; text-align: center; letter-spacing: 1em; border: 2px solid #007bff; border-radius: 8px;"
+                        >
+                        <small class="form-text text-muted">💡 Get this PIN from the driver after payment</small>
+                    </div>
+
+                    <button type="button" class="btn btn-success btn-lg verify-pin-btn" data-booking-id="{{ booking.id }}" style="width: 100%;">
+                        ✅ Verify Payment
+                    </button>
+
+                    <div class="pin-error alert alert-danger" id="pin-error-{{ booking.id }}" style="display: none; margin-top: 15px;"></div>
+                    
+                    <p class="text-center" style="margin-top: 15px;">
+                        <small class="text-muted">
+                            🔁 Attempts remaining: <span class="attempts-remaining" id="attempts-{{ booking.id }}">3</span>
+                        </small>
+                    </p>
+                </div>
+            {% else %}
+                <!-- Payment Verified -->
+                <div class="payment-verified">
+                    <div class="alert alert-success text-center">
+                        <h4>✅ Payment Verified!</h4>
+                        <p class="mb-0">Thank you for using TrikeGo!</p>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+        {% endif %}
 
         {% if booking.status == 'pending' or booking.status == 'accepted' %}
             <button id="cancelBtn" class="btn btn-danger">Cancel Booking</button>
@@ -55,9 +124,13 @@
             bookingId: '{{ booking.id }}',
             userId: {{ user.id|default:'null' }},
             csrfToken: '{{ csrf_token }}',
-            cancelUrl: '{% url "booking:cancel_booking" booking.id %}'
+            cancelUrl: '{% url "booking:cancel_booking" booking.id %}',
+            isRider: {% if user == booking.rider %}true{% else %}false{% endif %},
+            bookingStatus: '{{ booking.status }}',
+            paymentVerified: {{ booking.payment_verified|yesno:"true,false" }}
         };
     </script>
     <script src="{% static 'booking/js/booking_detail.js' %}?v=1"></script>
+    <script src="{% static 'booking/js/rider_payment_pin.js' %}"></script>
 </body>
 </html>

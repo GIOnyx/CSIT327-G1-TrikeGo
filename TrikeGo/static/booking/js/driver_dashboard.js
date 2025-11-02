@@ -827,6 +827,23 @@
                 itineraryData = payload.itinerary;
                 updateTrackingState();
                 renderItineraryUI();
+                
+                // Check if payment modal should be shown (dropoff completed)
+                if (payload.showPaymentModal && payload.completedBookings && payload.completedBookings.length > 0) {
+                    // Prefer the booking that triggered this dropoff completion
+                    const targetId = payload.paymentModalBookingId;
+                    const booking = (targetId !== undefined && targetId !== null)
+                        ? payload.completedBookings.find(b => String(b.id) === String(targetId))
+                        : payload.completedBookings[0];
+
+                    if (booking) {
+                        setTimeout(() => {
+                            if (typeof window.showPaymentPINModal === 'function') {
+                                window.showPaymentPINModal(booking.id, booking.fare);
+                            }
+                        }, 500);
+                    }
+                }
             } else {
                 fetchItineraryData();
             }
@@ -1292,4 +1309,209 @@
         window.startLocationTracking = startLocationTracking; window.stopLocationTracking = stopLocationTracking;
     })();
 
+    // Payment PIN Modal Handler
+    (function() {
+        const modal = document.getElementById('payment-pin-modal');
+        const modalFare = document.getElementById('modal-fare');
+        const generateBtn = document.getElementById('modal-generate-pin-btn');
+        const closeBtn = document.getElementById('modal-close-btn');
+        const pinGenerationSection = document.getElementById('pin-generation-section');
+        const pinDisplaySection = document.getElementById('pin-display-section');
+        const pinDisplay = document.getElementById('modal-pin-display');
+        const pinTimer = document.getElementById('modal-pin-timer');
+        
+        let currentBookingId = null;
+        let countdownInterval = null;
+        let isGenerating = false; // Flag to prevent duplicate generation
+        
+        // Function to show modal after trip completion
+        window.showPaymentPINModal = async function(bookingId, fare, autoGenerate = true) {
+            console.log('showPaymentPINModal called for booking:', bookingId, 'autoGenerate:', autoGenerate);
+            
+            currentBookingId = bookingId;
+            modalFare.textContent = `₱${parseFloat(fare).toFixed(2)}`;
+            pinGenerationSection.style.display = 'block';
+            pinDisplaySection.style.display = 'none';
+            modal.style.display = 'flex';
+            isGenerating = false; // Reset flag when modal opens
+            
+            // If auto-generate is true, check if PIN already exists first
+            if (autoGenerate && !isGenerating) {
+                try {
+                    console.log('Checking if PIN already exists for booking:', bookingId);
+                    const statusResponse = await fetch(`/booking/api/${bookingId}/payment/pin-status/`, {
+                        headers: { 'X-CSRFToken': getCookie('csrftoken') }
+                    });
+                    const statusData = await statusResponse.json();
+                    console.log('PIN status:', statusData);
+                    
+                    if (statusData.pin_valid && statusData.pin_exists) {
+                        // PIN already exists and is valid, just show generation section
+                        // User can manually click to try generating (will get the existing PIN message)
+                        console.log('Valid PIN already exists, user can manually generate or wait');
+                    } else {
+                        // No valid PIN exists, auto-generate
+                        setTimeout(() => {
+                            if (!isGenerating) {
+                                console.log('Auto-triggering PIN generation for booking:', bookingId);
+                                generateBtn.click();
+                            }
+                        }, 300);
+                    }
+                } catch (error) {
+                    console.error('Error checking PIN status:', error);
+                    // On error, try to generate anyway
+                    setTimeout(() => {
+                        if (!isGenerating) {
+                            generateBtn.click();
+                        }
+                    }, 300);
+                }
+            }
+        };
+        
+        // Generate PIN
+        generateBtn.addEventListener('click', async function() {
+            if (!currentBookingId) {
+                console.error('No booking ID set for PIN generation');
+                return;
+            }
+            
+            // Prevent duplicate generation
+            if (isGenerating) {
+                console.warn('PIN generation already in progress, ignoring duplicate request');
+                return;
+            }
+            
+            isGenerating = true;
+            generateBtn.disabled = true;
+            console.log('🔑 GENERATING PIN for booking:', currentBookingId);
+            
+            try {
+                const response = await fetch(`/booking/api/${currentBookingId}/payment/generate-pin/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    }
+                });
+                
+                const data = await response.json();
+                console.log('📦 PIN generation response:', data);
+                console.log('📊 Response status:', response.status, 'OK:', response.ok);
+                
+                if (response.ok && data.status === 'success') {
+                    // Show PIN
+                    pinDisplay.textContent = data.pin;
+                    pinGenerationSection.style.display = 'none';
+                    pinDisplaySection.style.display = 'block';
+                    
+                    console.log('✅ PIN generated successfully:', data.pin, 'for booking:', currentBookingId);
+                    
+                    // Start countdown
+                    const expiresAt = new Date(data.expires_at);
+                    startCountdown(expiresAt);
+                    
+                    // Poll for verification
+                    startPollingForVerification();
+                } else {
+                    console.error('❌ PIN generation failed:', data);
+                    console.error('❌ Status:', data.status, 'Message:', data.message);
+                    alert(data.message || 'Failed to generate PIN');
+                    isGenerating = false; // Reset flag on error
+                    generateBtn.disabled = false;
+                }
+            } catch (error) {
+                console.error('💥 Error generating PIN:', error);
+                alert('Failed to generate PIN. Please try again.');
+                isGenerating = false; // Reset flag on error
+                generateBtn.disabled = false;
+            }
+        });
+        
+        // Countdown timer
+        function startCountdown(expiresAt) {
+            if (countdownInterval) clearInterval(countdownInterval);
+            
+            countdownInterval = setInterval(() => {
+                const now = new Date();
+                const diff = expiresAt - now;
+                
+                if (diff <= 0) {
+                    clearInterval(countdownInterval);
+                    pinTimer.textContent = '0:00';
+                    return;
+                }
+                
+                const minutes = Math.floor(diff / 60000);
+                const seconds = Math.floor((diff % 60000) / 1000);
+                pinTimer.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            }, 1000);
+        }
+        
+        // Poll for payment verification
+        let pollingInterval = null;
+        function startPollingForVerification() {
+            if (pollingInterval) clearInterval(pollingInterval);
+            
+            pollingInterval = setInterval(async () => {
+                try {
+                    const response = await fetch(`/booking/api/${currentBookingId}/payment/pin-status/`, {
+                        headers: {
+                            'X-CSRFToken': getCookie('csrftoken')
+                        }
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.payment_verified) {
+                        clearInterval(pollingInterval);
+                        clearInterval(countdownInterval);
+                        
+                        // Show success message
+                        pinDisplaySection.innerHTML = `
+                            <div style="background: #28a745; padding: 25px; border-radius: 10px; margin-bottom: 20px;">
+                                <div style="font-size: 48px; margin-bottom: 10px;">✅</div>
+                                <p style="color: white; font-size: 18px; font-weight: bold;">Payment Verified!</p>
+                                <p style="color: white; margin-top: 10px;">Trip completed successfully</p>
+                            </div>
+                        `;
+                        
+                        // Auto-close after 3 seconds or navigate
+                        setTimeout(() => {
+                            modal.style.display = 'none';
+                            window.location.reload(); // Refresh to update itinerary
+                        }, 3000);
+                    }
+                } catch (error) {
+                    console.error('Error checking PIN status:', error);
+                }
+            }, 2000); // Poll every 2 seconds
+        }
+        
+        // Close modal
+        closeBtn.addEventListener('click', function() {
+            modal.style.display = 'none';
+            if (countdownInterval) clearInterval(countdownInterval);
+            if (pollingInterval) clearInterval(pollingInterval);
+        });
+        
+        // Helper function to get CSRF token
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+    })();
+
 })();
+

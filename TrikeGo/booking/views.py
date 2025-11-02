@@ -2,6 +2,7 @@
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.contrib import messages
 from django.views.decorators.http import require_POST
 from django.http import JsonResponse, HttpResponseForbidden
 from django.utils import timezone
@@ -13,6 +14,19 @@ from user.models import CustomUser
 @login_required
 @require_POST # This view now only accepts POST requests from the form
 def create_booking(request):
+    latest_booking = (
+        Booking.objects
+        .filter(rider=request.user)
+        .order_by('-booking_time', '-id')
+        .first()
+    )
+    if latest_booking and latest_booking.status == 'completed' and not latest_booking.payment_verified:
+        messages.error(
+            request,
+            f'Please verify the cash payment for Trip #{latest_booking.id} before booking another ride.'
+        )
+        return redirect('user:rider_dashboard')
+
     form = BookingForm(request.POST)
     if form.is_valid():
         booking = form.save(commit=False)

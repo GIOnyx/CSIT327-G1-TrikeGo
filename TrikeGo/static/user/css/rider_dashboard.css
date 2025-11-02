@@ -66,10 +66,11 @@ body {
 .nav-icons .logout-icon { margin-top: auto; }
 .nav-icon img { width: 24px; height: 24px; display:block; margin: 0 auto; filter: brightness(0.95); align-items: center; align-content: center; align-self: center;}
 
-.sidebar-content { display:none; }
+/* Sidebar content is hidden by default */
+.sidebar-content { display: none; color: #fff; height: 100%; }
 
-/* When the sidebar content expands, allow scrolling if content exceeds viewport height */
-.sidebar .sidebar-content { display:none; }
+/* When body has sidebar-expanded class, show sidebar content */
+body.sidebar-expanded .sidebar-content { display: block; }
 .sidebar .sidebar-content .dashboard-profile-card,
 .sidebar .sidebar-content .dashboard-loyaltypoints-card,
 .sidebar .sidebar-content .dashboard-tracking-card,
@@ -201,14 +202,19 @@ body {
 .dashboard-booking-card {
   position: fixed;
   bottom: 30px;
-  left: calc(50% + 120px);
-  transform: translateX(-50%);
+  left: 108px; /* Beside sidebar with gap */
   background: rgba(255, 255, 255, 0.95);
   border-radius: 16px;
   padding: 1.5rem 2rem;
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-  width: clamp(320px, 50%, 600px);
-  z-index: 1420;   
+  width: clamp(320px, 35%, 500px);
+  z-index: 1420;
+  transition: left 0.3s ease;
+}
+
+/* When history panel is open, move booking card to the right */
+body.history-panel-open .dashboard-booking-card {
+  left: 508px; /* History ends at 488px + 20px gap */
 }
 
 /* When a booking is active, hide the booking card (rider can only have 1 active booking) */
@@ -250,16 +256,21 @@ body.booking-active #booking-preview-card { display: none !important; }
 .booking-form .field-row { margin-bottom: 12px; }
 .booking-form input[type="number"] { max-width: 120px; }
 
-/* Make booking preview more compact and stack pickup/destination */
+/* Booking preview card - positioned beside sidebar like other cards */
 #booking-preview-card {
-  left: 50% !important;
-  transform: translateX(-50%);
+  /* Remove centering - use same positioning as .driver-info-card */
   min-width: 320px;
   max-width: 680px;
   padding: 12px 16px;
   border-radius: 16px;
   bottom: 24px;
 }
+
+/* Reactive positioning when history opens */
+body.history-panel-open #booking-preview-card {
+  left: 508px !important; /* Override to move with history */
+}
+
 #booking-preview-card .driver-card-inner { gap:12px; }
 #booking-preview-card .driver-meta { display: block; color: #eef6ff; }
 #booking-preview-card .driver-meta div { margin-bottom: 6px; font-size: 13px; }
@@ -356,23 +367,26 @@ body.booking-active #booking-preview-card { display: none !important; }
   gap: 8px;
   align-items: center;
 }
-.active-booking-pill .pill-link { color: #0b69ff; font-weight:600; text-decoration:underline; }
-
-/* Driver info card (bottom-left overlay) */
+/* Driver info card (bottom-left overlay) - positioned beside sidebar */
 .driver-info-card {
   position: fixed;
-  /* move a bit right so it doesn't overlap the left sidebar; increase gap to avoid touching */
-  left: 120px;
+  left: 108px; /* Beside sidebar with 12px gap */
   bottom: 24px;
-  background: linear-gradient(180deg, rgba(3,11,22,0.95), rgba(8,18,34,0.95));
+  background: linear-gradient(180deg, rgba(15, 35, 65, 0.95), rgba(20, 45, 80, 0.95)); /* Navy blue gradient */
   color: #eef6ff;
   border-radius: 28px;
   padding: 14px 16px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.35);
   z-index: 1425;
   min-width: 320px;
-  margin-left: 20px;
+  transition: left 0.3s ease; /* Smooth movement when history opens */
 }
+
+/* When history panel is open, move driver info card to the right */
+body.history-panel-open .driver-info-card {
+  left: 508px; /* 108px (sidebar+gap) + 380px (history) + 20px (gap) */
+}
+
 .driver-card-inner { display:flex; gap:14px; align-items:center; }
 .driver-avatar { width:72px; height:72px; border-radius: 50%; background: linear-gradient(135deg,#0f1724,#152033); box-shadow: inset 0 -6px 12px rgba(255,255,255,0.03); }
 .driver-info-card .driver-actions { margin-left: 12px; }
@@ -457,28 +471,121 @@ body.booking-active #booking-preview-card { display: none !important; }
   top: auto !important;
   z-index: 1200 !important;
 }
+/* Sidebar expansion for history panel */
+.nav-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
 
+.nav-center {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* When sidebar expands, adjust width */
+body.sidebar-expanded .sidebar {
+  width: 320px;
+}
+
+/* Sidebar history section styles */
+.sidebar-history {
+  background: #fff;
+  color: #333;
+  border-radius: 8px;
+  height: 100%;
+}
+
+.sidebar-history strong {
+  color: #0b2340;
+  font-size: 16px;
+}
+
+.history-back-link,
+.rides-back-link {
+  color: #0b63d6;
+  text-decoration: none;
+  padding: 10px;
+  display: block;
+  text-align: center;
+  font-weight: 600;
+}
+
+.history-back-link:hover,
+.rides-back-link:hover {
+  text-decoration: underline;
+}
+
+/* Trip History Overlay Panel Styles */
+#rider-history-panel {
+  animation: slideInLeft 0.3s ease-out;
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    left: 60px;
+  }
+  to {
+    opacity: 1;
+    left: 96px;
+  }
+}
+
+#close-rider-history-panel:hover {
+  background: rgba(255,255,255,0.3) !important;
+}
+
+#close-rider-history-panel-bottom:hover {
+  background: #0a1f38 !important;
+}
+
+#rider-history-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+#rider-history-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#rider-history-list::-webkit-scrollbar-thumb {
+  background: #cbd5e0;
+  border-radius: 3px;
+}
+
+#rider-history-list::-webkit-scrollbar-thumb:hover {
+  background: #a0aec0;
+}
+
+/* Rating stars */
 .rating-stars {
-    display: inline-block;
-    direction: rtl;
+  display: inline-block;
+  direction: rtl;
 }
+
 .rating-stars input[type="radio"] {
-    display: none;
+  display: none;
 }
+
 .rating-stars label {
-    color: #ccc;
-    font-size: 2.5rem;
-    padding: 0 4px;
-    cursor: pointer;
-    transition: color 0.2s;
+  color: #ccc;
+  font-size: 2.5rem;
+  padding: 0 4px;
+  cursor: pointer;
+  transition: color 0.2s;
 }
+
 .rating-stars label:hover,
 .rating-stars label:hover ~ label {
-    color: #ffc107;
+  color: #ffc107;
 }
+
 .rating-stars input[type="radio"]:checked ~ label {
-    color: #ff9800;
+  color: #ff9800;
 }
+
 .rating-stars label:before {
-    content: '★';
+  content: '★';
 }
