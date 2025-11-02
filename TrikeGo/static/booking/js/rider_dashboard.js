@@ -151,6 +151,17 @@
 
     // Initialize map and autocomplete on DOMContentLoaded
     document.addEventListener('DOMContentLoaded', () => {
+        const openTripHistoryLink = document.getElementById('open-trip-history-link');
+        if (openTripHistoryLink) {
+            openTripHistoryLink.addEventListener('click', (event) => {
+                event.preventDefault();
+                const historyIcon = document.getElementById('rider-history-icon');
+                if (historyIcon) {
+                    historyIcon.click();
+                }
+            });
+        }
+
         try {
             window.map = L.map('map').setView([14.5995, 120.9842], 12);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors', maxZoom: 19 }).addTo(window.map);

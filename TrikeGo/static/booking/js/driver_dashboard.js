@@ -1044,31 +1044,14 @@
             // Sidebar toggles: rides icon opens the hidden sidebar-content; open-rides button also opens it
             try {
                 const ridesIconEl = document.getElementById('rides-icon');
-                const sidebarContentEl = document.querySelector('.sidebar-content');
-                const openRidesBtn = document.getElementById('open-rides-btn');
-                const ridesBack = document.getElementById('rides-back');
-                if (ridesIconEl && sidebarContentEl) {
-                    ridesIconEl.addEventListener('click', function(e){
-                        e.preventDefault();
-                    // expand the rail in-place: add a body class so CSS shifts the map
-                    try { document.body.classList.add('sidebar-expanded','show-rides'); } catch(e){}
-                    // show rides view inside the sidebar
-                    try { const ridesView = sidebarContentEl.querySelector('.sidebar-rides'); const mainView = sidebarContentEl.querySelector('.sidebar-main'); if (ridesView && mainView) { ridesView.style.display = 'block'; mainView.style.display = 'none'; } } catch(e){}
-                    try { map.invalidateSize(); } catch(e){}
+                if (ridesIconEl) {
+                    ridesIconEl.addEventListener('click', function(e) {
+                        if (typeof window.openDriverRidesPanel === 'function') {
+                            window.openDriverRidesPanel(e);
+                        }
                     });
                 }
-                if (ridesBack && sidebarContentEl) {
-                    ridesBack.addEventListener('click', function(e){ e.preventDefault(); try { const ridesView = sidebarContentEl.querySelector('.sidebar-rides'); const mainView = sidebarContentEl.querySelector('.sidebar-main'); if (ridesView && mainView) { ridesView.style.display = 'none'; mainView.style.display = 'block'; } document.body.classList.remove('sidebar-expanded','show-rides'); try { map.invalidateSize(); } catch(e){} } catch(err) { console.warn('ridesBack handler', err); } });
-                }
-                // bottom back link (inside rides panel)
-                const ridesBackBottom = document.getElementById('rides-back-bottom');
-                if (ridesBackBottom && sidebarContentEl) {
-                    ridesBackBottom.addEventListener('click', function(e){ e.preventDefault(); try { const ridesView = sidebarContentEl.querySelector('.sidebar-rides'); const mainView = sidebarContentEl.querySelector('.sidebar-main'); if (ridesView && mainView) { ridesView.style.display = 'none'; mainView.style.display = 'block'; } document.body.classList.remove('sidebar-expanded','show-rides'); try { map.invalidateSize(); } catch(e){} } catch(err) { console.warn('ridesBackBottom handler', err); } });
-                }
-                if (openRidesBtn && sidebarContentEl) {
-                    openRidesBtn.addEventListener('click', function(){ try { document.body.classList.add('sidebar-expanded'); const ridesView = sidebarContentEl.querySelector('.sidebar-rides'); const mainView = sidebarContentEl.querySelector('.sidebar-main'); if (ridesView && mainView) { ridesView.style.display = 'block'; mainView.style.display = 'none'; } map.invalidateSize(); } catch(e){} });
-                }
-            } catch(e){ console.warn('Sidebar toggle init failed', e); }
+            } catch(e){ console.warn('Rides panel init failed', e); }
 
             // Helpful debug: show console message if ORS API key missing
             if (!ORS_API_KEY || ORS_API_KEY.length < 10) {

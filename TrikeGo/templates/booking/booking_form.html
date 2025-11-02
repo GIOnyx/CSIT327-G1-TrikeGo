@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html>
 <head>
@@ -6,7 +7,7 @@
     <link rel="stylesheet" href="{% static 'booking/css/booking.css' %}">
 
 </head>
-<body>
+<body data-ors-api-key="{{ settings.OPENROUTESERVICE_API_KEY }}">
     <h1>Book Your Ride</h1>
     <form method="post">
         {% csrf_token %}
@@ -30,88 +31,6 @@
         <button type="submit">Find Trike</button>
     </form>
 
-    <script>
-    const ORS_API_KEY = '{{ settings.OPENROUTESERVICE_API_KEY }}' || '5b3ce3597851110001cf62488c26abeb';
-
-    class ORSAutocomplete {
-        constructor(inputEl, resultsEl, hiddenLatId, hiddenLonId) {
-            this.input = inputEl;
-            this.results = resultsEl;
-            this.hiddenLat = document.getElementById(hiddenLatId);
-            this.hiddenLon = document.getElementById(hiddenLonId);
-            this.timeout = null;
-            this.bind();
-        }
-        bind() {
-            this.input.addEventListener('input', (e) => {
-                clearTimeout(this.timeout);
-                const q = e.target.value.trim();
-                if (q.length < 3) { this.results.innerHTML = ''; return; }
-                this.results.innerHTML = 'Searching...';
-                this.timeout = setTimeout(() => this.search(q), 300);
-            });
-        }
-        async search(query) {
-            // Request more address-level results and increase size for improved sensitivity.
-            // If a focus point is available we could add 'focus' to bias results; omitted here for privacy.
-            const params = new URLSearchParams({
-                api_key: ORS_API_KEY,
-                text: query,
-                size: 12,
-                'boundary.country': 'PH',
-                // Prefer address-level candidates when possible
-                layers: 'address'
-            });
-            const url = `https://api.openrouteservice.org/geocode/search?${params.toString()}`;
-            const r = await fetch(url);
-            const data = await r.json();
-            const feats = data.features || [];
-            this.results.innerHTML = '';
-            feats.forEach(f => {
-                const div = document.createElement('div');
-                const props = f.properties || {};
-                div.className = 'autocomplete-item';
-                div.textContent = props.label || props.name || 'Unknown';
-                div.onclick = () => this.select(f);
-                this.results.appendChild(div);
-            });
-        }
-        select(feature) {
-            const [lon, lat] = feature.geometry.coordinates;
-            const props = feature.properties || {};
-            // Build a more specific label: prefer label, fall back to name + street, then coords
-            let label = props.label || props.name || '';
-            if (!label && props.street) label = `${props.street}`;
-            if (!label) label = `${lat}, ${lon}`;
-
-            // If the input currently equals the label but coordinates differ, append short coords to disambiguate
-            const current = this.input.value || '';
-            if (current.trim() === label.trim()) {
-                // append short coordinates
-                label = `${label} (${lat.toFixed(5)}, ${lon.toFixed(5)})`;
-            }
-
-            this.input.value = label;
-            this.hiddenLat.value = lat;
-            this.hiddenLon.value = lon;
-            this.results.innerHTML = '';
-        }
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
-        new ORSAutocomplete(
-            document.getElementById('pickup_location_input'),
-            document.getElementById('pickup-results'),
-            'id_pickup_latitude',
-            'id_pickup_longitude'
-        );
-        new ORSAutocomplete(
-            document.getElementById('destination_location_input'),
-            document.getElementById('destination-results'),
-            'id_destination_latitude',
-            'id_destination_longitude'
-        );
-    });
-    </script>
+    <script src="{% static 'booking/js/autocomplete.js' %}"></script>
 </body>
 </html>

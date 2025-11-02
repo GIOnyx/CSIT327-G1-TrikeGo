@@ -953,6 +953,7 @@ def get_rider_trip_history(request):
             'date': booking.booking_time.strftime('%b %d, %Y %I:%M %p'),
             'paymentVerified': booking.payment_verified,
             'driverName': booking.driver.get_full_name() if booking.driver else 'N/A',
+            'distanceKm': float(booking.estimated_distance) if booking.estimated_distance is not None else None,
         })
 
     return JsonResponse({'status': 'success', 'trips': trips})
@@ -978,6 +979,7 @@ def get_driver_trip_history(request):
             'date': booking.booking_time.strftime('%b %d, %Y %I:%M %p'),
             'paymentVerified': booking.payment_verified,
             'riderName': booking.rider.get_full_name() if booking.rider else 'Unknown',
+            'distanceKm': float(booking.estimated_distance) if booking.estimated_distance is not None else None,
         })
 
     return JsonResponse({'status': 'success', 'trips': trips})

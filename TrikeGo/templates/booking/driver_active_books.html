@@ -7,59 +7,9 @@
     <title>Active Bookings - TrikeGo</title>
     <link rel="stylesheet" href="{% static 'booking/css/driver_active_books.css' %}">
     <link rel="stylesheet" href="{% static 'booking/css/payment_pin.css' %}">
-    
-    <!-- NEW STYLES for the location prompt -->
-    <style>
-        .location-permission-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.85);
-            color: white;
-            display: none; /* Hidden by default */
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            z-index: 1000;
-            padding: 20px;
-        }
-
-        .location-permission-content {
-            max-width: 500px;
-        }
-
-        .location-permission-content h2 {
-            font-size: 24px;
-            margin-bottom: 15px;
-        }
-
-        .location-permission-content p {
-            font-size: 16px;
-            line-height: 1.6;
-            margin-bottom: 25px;
-        }
-
-        .location-permission-content .btn-enable-location {
-            background-color: #28a745;
-            color: white;
-            padding: 12px 25px;
-            border-radius: 8px;
-            text-decoration: none;
-            font-weight: bold;
-            border: none;
-            cursor: pointer;
-        }
-        .location-permission-content .btn-enable-location:hover {
-            background-color: #218838;
-        }
-        .visible {
-            display: flex;
-        }
-    </style>
 </head>
-<body data-has-active-bookings="{% if active_bookings %}true{% else %}false{% endif %}">
+<body data-has-active-bookings="{% if active_bookings %}true{% else %}false{% endif %}"
+      data-update-location-url="{% url 'user:update_driver_location' %}">
     <!-- NEW HTML for the location permission overlay -->
     <div id="location-permission-overlay" class="location-permission-overlay">
         <div class="location-permission-content">
@@ -155,86 +105,7 @@
     </div>
 
     <!-- UPDATED SCRIPT FOR LOCATION TRACKING -->
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const overlay = document.getElementById('location-permission-overlay');
-            const enableBtn = document.getElementById('enable-location-btn');
-            const promptTitle = document.getElementById('location-prompt-title');
-            const promptMessage = document.getElementById('location-prompt-message');
-
-            // Only start tracking if there are active bookings
-            const hasActiveBookings = document.body.getAttribute('data-has-active-bookings') === 'true';
-            if (hasActiveBookings) {
-                if ('geolocation' in navigator && 'permissions' in navigator) {
-                    checkPermissions();
-                } else {
-                    alert("Geolocation is not supported by this browser.");
-                }
-            }
-
-            function checkPermissions() {
-                navigator.permissions.query({ name: 'geolocation' }).then(function(result) {
-                    if (result.state === 'granted') {
-                        // Permission already granted, start watching
-                        startLocationWatch();
-                    } else if (result.state === 'prompt') {
-                        // Show our custom prompt before the browser one
-                        overlay.classList.add('visible');
-                        enableBtn.onclick = function() {
-                            overlay.classList.remove('visible'); // Hide our prompt
-                            startLocationWatch(); // This will trigger the browser prompt
-                        };
-                    } else if (result.state === 'denied') {
-                        // Permission was denied
-                        showPermissionDeniedError();
-                    }
-                });
-            }
-
-            function startLocationWatch() {
-                console.log("Attempting to start location watch...");
-                const options = {
-                    enableHighAccuracy: true,
-                    timeout: 10000,
-                    maximumAge: 0
-                };
-                navigator.geolocation.watchPosition(sendLocation, handleError, options);
-            }
-
-            function sendLocation(position) {
-                const { latitude, longitude } = position.coords;
-                console.log(`Sending location: Lat=${latitude}, Lon=${longitude}`);
-
-                fetch("{% url 'user:update_driver_location' %}", {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ lat: latitude, lon: longitude })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status !== 'success') {
-                        console.error('Failed to update location:', data.message);
-                    }
-                })
-                .catch(error => console.error('Error sending location:', error));
-            }
-
-            function handleError(error) {
-                console.warn(`Geolocation error: ${error.message}`);
-                if (error.code === 1) { // Error code 1 is PERMISSION_DENIED
-                    showPermissionDeniedError();
-                }
-            }
-            
-            function showPermissionDeniedError() {
-                promptTitle.innerText = "Location Access Denied";
-                promptMessage.innerHTML = "You have blocked location access for this site. To use live tracking, you must manually enable location permissions in your browser settings. <br><br> Look for the lock icon 🔒 next to the website address.";
-                enableBtn.style.display = 'none'; // Hide the button as it won't work
-                overlay.classList.add('visible');
-            }
-        });
-    </script>
-    
+    <script src="{% static 'booking/js/driver_location_permission.js' %}"></script>
     <!-- Payment PIN Verification Script -->
     <script src="{% static 'booking/js/driver_payment_pin.js' %}"></script>
 </body>
