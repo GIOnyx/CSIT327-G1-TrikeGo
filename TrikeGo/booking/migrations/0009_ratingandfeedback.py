@@ -9,9 +9,8 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('booking', '0008_bookingstop'),
-        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-    ]
+    ('booking', '0009_add_payment_pin_verification'),
+]
 
     operations = [
         migrations.CreateModel(
