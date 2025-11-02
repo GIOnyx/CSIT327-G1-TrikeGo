@@ -9,13 +9,16 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-    ('booking', '0009_add_payment_pin_verification'), 
-    migrations.swappable_dependency(settings.AUTH_USER_MODEL),
+        ('booking', '0009_add_payment_pin_verification'),
+        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
+
     operations = [
         migrations.SeparateDatabaseAndState(
             
-            
+            # This is the "state" operation.
+            # It tells Django's migration tracker that this model
+            # now exists, so future migrations can build on it.
             state_operations=[
                 migrations.CreateModel(
                     name='RatingAndFeedback',
@@ -35,6 +38,10 @@ class Migration(migrations.Migration):
                     },
                 ),
             ],
+            
+            # This is the "database" operation.
+            # By providing an empty list, you are telling the database
+            # to "do nothing" because the table already exists.
             database_operations=[],
         )
     ]
