@@ -1,6 +1,7 @@
 from django import forms
 from .models import Booking
 import math
+from .models import RatingAndFeedback
 
 class BookingForm(forms.ModelForm):
     passengers = forms.IntegerField(
@@ -105,3 +106,25 @@ class BookingForm(forms.ModelForm):
         if v > 20:
             raise forms.ValidationError('Passengers exceeds allowed maximum')
         return v
+
+class RatingForm(forms.ModelForm):
+    """Form for rider to submit star rating and text feedback after a trip."""
+
+    # Explicitly define rating_value as a field to use the choices from the model
+    rating_value = forms.ChoiceField(
+        choices=RatingAndFeedback.RATING_CHOICES,
+        widget=forms.RadioSelect(attrs={'class': 'rating-star-radio'}),
+        initial=5,
+        label='How would you rate your driver?'
+    )
+
+    class Meta:
+        model = RatingAndFeedback
+        fields = ['rating_value', 'feedback_text']
+        widgets = {
+            'feedback_text': forms.Textarea(attrs={
+                'rows': 3,
+                'placeholder': 'Optional: Tell us about your experience...',
+                'class': 'form-control'
+            }),
+        }

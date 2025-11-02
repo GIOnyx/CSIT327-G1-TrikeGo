@@ -23,7 +23,9 @@ urlpatterns = [
     path('driver/active/<int:booking_id>/cancel/', views.cancel_accepted_booking, name='cancel_accepted_booking'),
     path('driver/active/<int:booking_id>/complete/', views.complete_booking, name='complete_booking'),
     path('rider/booking/<int:booking_id>/cancel/', views.cancel_booking, name='cancel_booking'),
-    
+    path('<int:booking_id>/rate/', views.rate_booking, name='rate_booking'),
+    path('api/booking/<int:booking_id>/submit_rating/', views.submit_rating_ajax, name='submit_rating_ajax'),
+
     # --- ADDED: REAL-TIME TRACKING API URLS ---
     path('api/driver/update_location/', views.update_driver_location, name='update_driver_location'),
     path('api/booking/<int:booking_id>/driver_location/', views.get_driver_location, name='get_driver_location'),

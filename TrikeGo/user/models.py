@@ -1,5 +1,7 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.db.models import Avg, Count
+from booking.models import RatingAndFeedback
 
 class CustomUser(AbstractUser):
     USER_TYPES = (
@@ -31,6 +33,30 @@ class Driver(models.Model):
         ('Online', 'Online'),
         ('In_trip', 'In trip'),
     )
+    @property
+    def average_rating(self):
+        """Calculates the average rating received by this driver."""
+        
+        # 1. Query the RatingAndFeedback model, filtering by the driver's user account (self.user)
+        result = RatingAndFeedback.objects.filter(
+            rated_user=self.user
+        ).aggregate(
+            average=Avg('rating_value'),
+            count=Count('id')
+        )
+        
+        avg = result['average']
+        count = result['count']
+        
+        if avg is None:
+            # Return 0.0 if no ratings exist yet
+            return {'average': 0.0, 'count': 0}
+        
+        # 2. Round the average to one decimal place for clean display
+        return {
+            'average': round(float(avg), 1),
+            'count': count
+        }
     # status only represents availability/engagement. Pending approval is tracked with `is_verified`.
     # longest choice value is 'In_trip' (7 chars) so max_length can be small but keep 16 for safety.
     status = models.CharField(max_length=16, choices=STATUS_CHOICES, default='Offline')

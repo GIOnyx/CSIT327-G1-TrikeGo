@@ -216,13 +216,20 @@
                 <div class="driver-meta">
                     <span class="driver-plate">Plate: -</span>
                     <span class="driver-color">Color: -</span>
+                    <span class="driver-rating">Rating: -</span>
                 </div>
+                    {% if active_bookings and active_bookings|length > 0 %}
+                    {% with booking=active_bookings.0 %}
                 <div class="driver-fare">
                     Estimated Fare: 
                     <span id="active-card-fare">
                         {% if booking.fare %}₱{{ booking.fare }}{% else %}--{% endif %}
                     </span>
                 </div>
+                {% endwith %}
+                {% else %}
+                <div class="driver-fare">Fare: <span id="active-card-fare">--</span></div>
+                {% endif %}
 
                 <!-- Extra info: ETA, pickup and destination shown in the card -->
                 <div class="driver-info-extra">
@@ -457,5 +464,80 @@
 </html>
 
 
+{% if unrated_booking %}
+<div id="ratingModal" class="modal" style="display: block; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4);">
+    <div class="modal-content" style="background-color: #fefefe; margin: 15% auto; padding: 20px; border: 1px solid #888; width: 80%; max-width: 400px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.3);">
+        <h3 class="text-center">Rate Your Driver! ⭐️</h3>
+        <p class="text-center text-muted">Trip to: {{ unrated_booking.destination_address }}</p>
+
+        <form id="rating-form" method="post" action="{% url 'user:submit_rating_ajax' unrated_booking.id %}">
+            {% csrf_token %}
+            
+            <div class="form-group text-center my-3">
+                
+                {# The label is usually hidden by CSS in star ratings, but keep it for accessibility #}
+                {{ rating_form.rating_value.label_tag }}
+
+                {# 👇 THE CRITICAL CHANGE: Added the rating-stars class container 👇 #}
+                <div class="rating-stars">
+                    {{ rating_form.rating_value }}
+                </div>
+                
+                {% if rating_form.rating_value.errors %}<div class="text-danger">{{ rating_form.rating_value.errors }}</div>{% endif %}
+            </div>
+            
+            <div class="form-group mb-3">
+                {{ rating_form.feedback_text.label_tag }}
+                {{ rating_form.feedback_text }}
+            </div>
+            
+            <button type="submit" class="btn btn-primary w-100">Submit Rating</button>
+        </form>
+    </div>
+</div>
+
+<script>
+// --- JavaScript to handle AJAX submission and modal closing ---
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('rating-form');
+    const modal = document.getElementById('ratingModal');
+
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Collect form data
+            const formData = new FormData(form);
+            
+            fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}' // Ensure CSRF token is sent
+                }
+            })
+            .then(response => response.json().then(data => ({status: response.status, body: data})))
+            .then(result => {
+                if (result.status === 200) {
+                    // Success: Hide modal and reload/refresh relevant data
+                    modal.style.display = 'none';
+                    alert(result.body.message); 
+                    // Refresh the page to clear the unrated_booking state
+                    window.location.reload(); 
+                } else {
+                    // Handle validation errors (e.g., if no star was selected)
+                    alert('Error submitting rating. Please check all fields.');
+                    console.error('Rating submission failed:', result.body);
+                }
+            })
+            .catch(error => {
+                console.error('Network or system error:', error);
+                alert('A network error occurred. Please try again.');
+            });
+        });
+    }
+});
+</script>
+{% endif %}
 </body>
 </html>

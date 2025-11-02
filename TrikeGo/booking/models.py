@@ -1,19 +1,19 @@
 import uuid
 
 from django.db import models
-from user.models import CustomUser 
+#from user.models import CustomUser 
 from django.utils import timezone
 from decimal import Decimal
 
 class Booking(models.Model):
     rider = models.ForeignKey(
-        CustomUser,
+        'user.CustomUser',
         on_delete=models.CASCADE,
         related_name='rider_bookings',
         limit_choices_to={'trikego_user': 'R'}
     )
     driver = models.ForeignKey(
-        CustomUser,
+        'user.CustomUser',
         on_delete=models.SET_NULL,
         null=True, blank=True,
         related_name='driver_bookings',
@@ -174,7 +174,7 @@ class BookingStop(models.Model):
 class DriverLocation(models.Model):
     """Track real-time driver locations"""
     driver = models.OneToOneField(
-        CustomUser,
+        'user.CustomUser',
         on_delete=models.CASCADE,
         related_name='current_location',
         limit_choices_to={'trikego_user': 'D'}
@@ -208,3 +208,62 @@ class RouteSnapshot(models.Model):
     
     def __str__(self):
         return f"Route for Booking {self.booking.id} at {self.created_at}"
+    
+class RatingAndFeedback(models.Model):
+    """Stores the rider's rating and feedback for a specific booking."""
+    
+    RATING_CHOICES = [(i, str(i)) for i in range(1, 6)] # 1 to 5 stars
+
+    # Links the rating to the completed trip
+    booking = models.OneToOneField(
+        Booking,
+        on_delete=models.CASCADE,
+        related_name='rating',
+        verbose_name='Trip Booking'
+    )
+    
+    # Store the user who submitted the rating (the rider)
+    rater = models.ForeignKey(
+        'user.CustomUser',
+        on_delete=models.CASCADE,
+        related_name='ratings_given',
+        limit_choices_to={'trikego_user': 'R'},
+        verbose_name='Rater (Rider)'
+    )
+    
+    # Store the user who is being rated (the driver)
+    rated_user = models.ForeignKey(
+        'user.CustomUser',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='ratings_received',
+        limit_choices_to={'trikego_user': 'D'},
+        verbose_name='Rated User (Driver)'
+    )
+
+    # Rating value (1-5 stars)
+    rating_value = models.PositiveSmallIntegerField(
+        choices=RATING_CHOICES,
+        default=5,
+        verbose_name='Star Rating'
+    )
+    
+    # Optional text feedback
+    feedback_text = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name='Feedback/Comment'
+    )
+    
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        verbose_name = "Rating and Feedback"
+        verbose_name_plural = "Ratings and Feedback"
+        # Constraint: Ensure a booking can only be rated once
+        constraints = [
+            models.UniqueConstraint(fields=['booking'], name='unique_booking_rating')
+        ]
+        
+    def __str__(self):
+        return f"Rating {self.rating_value} for Booking {self.booking_id}"
