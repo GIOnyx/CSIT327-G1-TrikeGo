@@ -1,0 +1,85 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Driver Wallet - TrikeGo</title>
+    <link rel="stylesheet" href="{% static 'wallet/css/driver_wallet.css' %}?v=1">
+</head>
+<body>
+    <header class="wallet-header">
+        <div class="wallet-header__left">
+            <a class="wallet-back" href="{% url 'user:driver_dashboard' %}">← Back to dashboard</a>
+            <h1>Driver Wallet</h1>
+            <p class="wallet-tagline">Track completed trip earnings and daily performance.</p>
+        </div>
+    </header>
+
+    <main class="wallet-main" aria-live="polite">
+        <section class="wallet-summary" aria-label="Earnings summary">
+            <div class="summary-card">
+                <h2>Today</h2>
+                <p class="summary-amount">₱{{ today_summary.total|floatformat:2 }}</p>
+                <p class="summary-meta">{{ today_summary.trip_count }} trip{{ today_summary.trip_count|pluralize }}</p>
+            </div>
+            <div class="summary-card">
+                <h2>Lifetime</h2>
+                <p class="summary-amount">₱{{ lifetime_total|floatformat:2 }}</p>
+                <p class="summary-meta">Across all completed trips</p>
+            </div>
+        </section>
+
+        <section class="wallet-daily" aria-label="Recent daily totals">
+            <div class="section-header">
+                <h2>Daily totals</h2>
+                <p>Last 14 active days</p>
+            </div>
+            {% if daily_breakdown %}
+                <ul class="daily-list">
+                    {% for day in daily_breakdown %}
+                        <li>
+                            <span class="daily-list__date">{{ day.date|date:'M d, Y' }}</span>
+                            <span class="daily-list__trips">{{ day.trip_count }} trip{{ day.trip_count|pluralize }}</span>
+                            <span class="daily-list__total">₱{{ day.total|floatformat:2 }}</span>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="wallet-empty">No completed trips yet. Complete your first ride to see earnings here.</p>
+            {% endif %}
+        </section>
+
+        <section class="wallet-trips" aria-label="Per-trip earnings">
+            <div class="section-header">
+                <h2>Recent trips</h2>
+                <p>Most recent completed bookings</p>
+            </div>
+            {% if recent_trips %}
+                <div class="trips-table" role="table">
+                    <div class="trips-row trips-row--header" role="row">
+                        <span role="columnheader">Completed</span>
+                        <span role="columnheader">Rider</span>
+                        <span role="columnheader">Route</span>
+                        <span role="columnheader" class="trips-col--amount">Fare</span>
+                    </div>
+                    {% for trip in recent_trips %}
+                        <div class="trips-row" role="row">
+                            <span role="cell">{{ trip.booking_time|date:'M d, Y h:i A' }}</span>
+                            <span role="cell">{{ trip.rider.get_full_name|default:trip.rider.username }}</span>
+                            <span role="cell">
+                                <span class="trip-route">{{ trip.pickup_address|default:'—' }} → {{ trip.destination_address|default:'—' }}</span>
+                            </span>
+                            <span role="cell" class="trips-col--amount">₱{{ trip.fare|default:0|floatformat:2 }}</span>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="wallet-empty">Recent trips will appear here once you complete bookings.</p>
+            {% endif %}
+        </section>
+    </main>
+
+    <script src="{% static 'wallet/js/driver_wallet.js' %}?v=1"></script>
+</body>
+</html>

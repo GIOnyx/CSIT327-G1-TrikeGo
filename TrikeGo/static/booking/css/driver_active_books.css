@@ -74,3 +74,54 @@ body {
     color: #666;
     font-style: italic;
 }
+
+/* Location permission overlay */
+.location-permission-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.85);
+    color: #fff;
+    display: none;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    z-index: 1000;
+    padding: 20px;
+}
+
+.location-permission-overlay.visible {
+    display: flex;
+}
+
+.location-permission-content {
+    max-width: 500px;
+}
+
+.location-permission-content h2 {
+    font-size: 24px;
+    margin-bottom: 15px;
+}
+
+.location-permission-content p {
+    font-size: 16px;
+    line-height: 1.6;
+    margin-bottom: 25px;
+}
+
+.location-permission-content .btn-enable-location {
+    background-color: #28a745;
+    color: #fff;
+    padding: 12px 25px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: bold;
+    border: none;
+    cursor: pointer;
+}
+
+.location-permission-content .btn-enable-location:hover {
+    background-color: #218838;
+}

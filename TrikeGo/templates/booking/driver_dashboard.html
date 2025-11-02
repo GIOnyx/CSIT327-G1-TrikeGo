@@ -6,18 +6,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Driver Dashboard - TrikeGo</title>
     <link rel="stylesheet" href="{% static 'user/css/driver_dashboard.css' %}?v=3" />
+    <link rel="stylesheet" href="{% static 'wallet/css/driver_wallet_panel.css' %}?v=1" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
-    <!-- styles moved to static/user/css/driver_dashboard.css -->
-        <style>
-        /* minimal inline helpers (loader only); layout is driven by static CSS in static/user/css/driver_dashboard.css */
-        /* center the fetching routes loader as an overlay */
-        #driver-route-loader{ position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); z-index:2250; background:rgba(255,255,255,0.98); padding:10px 12px; border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,0.12); display:flex; gap:8px; align-items:center; }
-        #driver-route-loader.hidden{ display:none !important; }
-        #driver-route-loader .spinner{ width:18px; height:18px; border-radius:50%; border:3px solid #e6e6e6; border-top-color:#007bff; animation:spin 1s linear infinite; }
-        @keyframes spin{ to { transform:rotate(360deg);} }
-    </style>
 </head>
-<body {% if active_booking %}data-active-booking-id="{{ active_booking.id }}"{% endif %}>
+<body
+    {% if active_booking %}data-active-booking-id="{{ active_booking.id }}"{% endif %}
+    data-ors-api-key="{{ settings.OPENROUTESERVICE_API_KEY }}"
+    data-user-id="{{ user.id|default:'' }}"
+    data-csrf-token="{{ csrf_token }}"
+    data-itinerary-endpoint="{% url 'booking:driver_itinerary' %}"
+    data-complete-stop-endpoint="{% url 'booking:complete_itinerary_stop' %}"
+>
     {# Compact driver dashboard: map fills main area; compact icon rail on the left; booking overlay pinned over map #}
 
     <!-- Payment PIN Modal -->
@@ -49,19 +48,132 @@
     </div>
 
     {# Driver Trip History Panel - Positioned next to sidebar #}
-    <div id="driver-history-panel" style="display: none; position: fixed; top: 20px; left: 108px; width: 380px; height: calc(100vh - 40px); background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); z-index: 1500; overflow: hidden;">
-        <div style="display: flex; flex-direction: column; height: 100%;">
-            {# Header #}
-            <div style="background: linear-gradient(135deg, #0b2340 0%, #1a3a5f 100%); color: white; padding: 18px 20px; display: flex; justify-content: space-between; align-items: center;">
-                <h2 style="margin: 0; font-size: 18px; font-weight: 600;">Trip History</h2>
-                <button id="close-driver-history-panel" style="background: rgba(255,255,255,0.2); border: none; color: white; font-size: 24px; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s;">
-                    ×
-                </button>
+    <div id="driver-history-panel" class="wallet-panel driver-history-panel" aria-hidden="true">
+        <div class="wallet-panel__header">
+            <div>
+                <h2>Trip History</h2>
+                <p>Review past rides and payment status</p>
             </div>
-            
-            {# Content Area #}
-            <div id="history-trips-list" style="flex: 1; overflow-y: auto; padding: 12px; background: #f8f9fa;">
-                <p style="text-align: center; color: #666; padding: 40px 20px;">Loading trip history...</p>
+            <button id="close-driver-history-panel" aria-label="Close trip history panel">×</button>
+        </div>
+        <div class="wallet-panel__body driver-history-panel__body">
+            <div id="history-trips-list" class="driver-history-panel__list">
+                <p class="driver-history-panel__empty">Loading trip history...</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="driver-wallet-panel" class="wallet-panel" aria-hidden="true">
+        <div class="wallet-panel__header">
+            <div>
+                <h2>Wallet</h2>
+                <p>Completed trip earnings</p>
+            </div>
+            <button id="close-driver-wallet-panel" aria-label="Close wallet panel">×</button>
+        </div>
+        <div class="wallet-panel__body">
+            <div id="wallet-panel-loader" class="wallet-panel__loader">
+                <div class="spinner" aria-hidden="true"></div>
+                <p>Loading earnings…</p>
+            </div>
+            <div id="wallet-panel-error" class="wallet-panel__error" role="alert" style="display:none;"></div>
+            <div id="wallet-panel-content" class="wallet-panel__content" style="display:none;">
+                <div class="wallet-summary-grid" aria-label="Earnings summary">
+                    <div class="wallet-summary-card">
+                        <span class="wallet-summary-card__label">Today</span>
+                        <span id="wallet-today-total" class="wallet-summary-card__amount">₱0.00</span>
+                        <span id="wallet-today-trips" class="wallet-summary-card__meta">0 trips</span>
+                    </div>
+                    <div class="wallet-summary-card">
+                        <span class="wallet-summary-card__label">Lifetime</span>
+                        <span id="wallet-lifetime-total" class="wallet-summary-card__amount">₱0.00</span>
+                        <span class="wallet-summary-card__meta">All completed trips</span>
+                    </div>
+                </div>
+
+                <section class="wallet-panel__section" aria-label="Daily totals">
+                    <div class="wallet-panel__section-header">
+                        <h3>Daily totals</h3>
+                        <span>Last 14 completed days</span>
+                    </div>
+                    <div id="wallet-daily-list" class="wallet-panel__scroll">
+                        <p class="wallet-panel__empty">No completed rides yet.</p>
+                    </div>
+                </section>
+
+                <section class="wallet-panel__section" aria-label="Recent trips">
+                    <div class="wallet-panel__section-header">
+                        <h3>Recent trips</h3>
+                        <span>Most recent 20</span>
+                    </div>
+                    <div id="wallet-trips-list" class="wallet-panel__scroll">
+                        <p class="wallet-panel__empty">Recent trips will appear here once rides are completed.</p>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <div id="driver-rides-panel" class="wallet-panel driver-rides-panel" aria-hidden="true">
+        <div class="wallet-panel__header">
+            <div>
+                <h2>Available Rides</h2>
+                <p>Accept new bookings and view rider details</p>
+            </div>
+            <button id="close-driver-rides-panel" aria-label="Close rides panel">×</button>
+        </div>
+        <div class="wallet-panel__body driver-rides-panel__body">
+            <div class="driver-rides-panel__list" id="rides-panel-list">
+                {% if available_rides %}
+                    {% for ride in available_rides %}
+                        <div class="driver-ride-card" data-booking-id="{{ ride.id }}">
+                            <div class="driver-ride-card__top">
+                                <div>
+                                    <span class="driver-ride-card__rider">{{ ride.rider.get_full_name|default:ride.rider.username }}</span>
+                                    <span class="driver-ride-card__seats">{{ ride.passengers|default:1 }} passenger{{ ride.passengers|default:1|pluralize }}</span>
+                                </div>
+                                <div class="driver-ride-card__fare">
+                                    {% with ride.fare as fare_value %}
+                                        {% if fare_value %}
+                                            <span class="driver-ride-card__fare-amount">₱{{ fare_value|floatformat:2 }}</span>
+                                        {% else %}
+                                            <span class="driver-ride-card__fare-amount driver-ride-card__fare-amount--pending">Fare pending</span>
+                                        {% endif %}
+                                    {% endwith %}
+                                </div>
+                            </div>
+                            <div class="driver-ride-card__route">
+                                <div class="driver-ride-card__route-item">
+                                    <span class="driver-ride-card__label">from:</span>
+                                    <span class="driver-ride-card__value">{{ ride.pickup_address|default:'—' }}</span>
+                                </div>
+                                <div class="driver-ride-card__route-item">
+                                    <span class="driver-ride-card__label">to:</span>
+                                    <span class="driver-ride-card__value">{{ ride.destination_address|default:'—' }}</span>
+                                </div>
+                            </div>
+                            {% if ride.estimated_distance or ride.estimated_duration %}
+                                <div class="driver-ride-card__meta">
+                                    {% if ride.estimated_distance %}
+                                        <span class="driver-ride-card__meta-text">Distance: {{ ride.estimated_distance|floatformat:1 }} km</span>
+                                    {% endif %}
+                                    {% if ride.estimated_duration %}
+                                        <span class="driver-ride-card__meta-text">ETA: ~{{ ride.estimated_duration }} mins</span>
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+                            <div class="driver-ride-card__actions">
+                                <button class="btn btn-secondary review-ride-btn" data-booking-id="{{ ride.id }}">Review</button>
+                                <form class="accept-ride-form" data-booking-id="{{ ride.id }}" method="POST" action="{% url 'user:accept_ride' ride.id %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-success" id="accept-btn-{{ ride.id }}">Accept</button>
+                                </form>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="driver-rides-panel__empty">No rides are available right now. Check back soon.</p>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -116,38 +228,6 @@
                         <a href="#" class="btn btn-sm btn-outline-secondary" style="display:block;">Update Profile</a>
                     </div>
                 </div>
-
-                <div class="sidebar-rides" style="padding:12px; display:flex; flex-direction:column; height:100%">
-                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
-                        <strong>Available Rides</strong>
-                    </div>
-                    <div id="active-rides-list" style="flex:1; overflow:auto;">
-                        {% if available_rides %}
-                            <ul style="list-style:none;padding:0;margin:0;">
-                                {% for ride in available_rides %}
-                                <li>
-                                    <div class="ride-card">
-                                        <div class="ride-title">{{ ride.rider.get_full_name|default:ride.rider.username }}</div>
-                                        <div class="ride-meta">Pickup: {{ ride.pickup_address|truncatechars:60 }}</div>
-                                        <div class="ride-meta">Dropoff: {{ ride.destination_address|truncatechars:60 }}</div>
-                                    <div style="margin-top:6px; display:flex; gap:6px;">
-                                        <button class="btn btn-secondary review-ride-btn" data-booking-id="{{ ride.id }}" onclick="window.reviewBooking && window.reviewBooking({{ ride.id }});">Review</button>
-                                        <form class="accept-ride-form" data-booking-id="{{ ride.id }}" method="POST" action="{% url 'user:accept_ride' ride.id %}" style="display:inline;">
-                                            {% csrf_token %}
-                                            <button type="submit" class="btn btn-success" id="accept-btn-{{ ride.id }}">Accept</button>
-                                        </form>
-                                    </div>
-                                </li>
-                                {% endfor %}
-                            </ul>
-                        {% else %}
-                            <p style="padding:8px;">No rides available</p>
-                        {% endif %}
-                    </div>
-                    <div class="rides-back-container">
-                        <a href="#" id="rides-back-bottom" class="rides-back-link">Back</a>
-                    </div>
-                </div>
                 </div>
 
                 <div style="padding:12px;">
@@ -192,17 +272,11 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
-    <script>
-        // Runtime configuration for driver_dashboard JS
-        window.DRIVER_DASH_CONFIG = {
-            ORS_API_KEY: '{{ settings.OPENROUTESERVICE_API_KEY }}',
-            userId: {{ user.id|default:'null' }},
-            csrfToken: '{{ csrf_token }}',
-            itineraryEndpoint: '{% url "booking:driver_itinerary" %}',
-            completeStopEndpoint: '{% url "booking:complete_itinerary_stop" %}'
-        };
-    </script>
-    <script src="{% static 'booking/js/driver_dashboard.js' %}?v=8"></script>
+    <script src="{% static 'booking/js/driver_dashboard_config.js' %}"></script>
+    <script src="{% static 'booking/js/driver_panel_manager.js' %}"></script>
+    <script src="{% static 'booking/js/driver_dashboard.js' %}?v=9"></script>
+    <script src="{% static 'wallet/js/driver_wallet.js' %}?v=2"></script>
+    <script src="{% static 'booking/js/driver_rides_panel.js' %}?v=1"></script>
     <script src="{% static 'booking/js/trip_history.js' %}"></script>
 
 </body>

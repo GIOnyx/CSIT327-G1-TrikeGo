@@ -7,7 +7,15 @@
     <link rel="stylesheet" href="{% static 'booking/css/booking.css' %}?v=2" />
     <link rel="stylesheet" href="{% static 'booking/css/payment_pin.css' %}" />
 </head>
-<body>
+<body
+    data-booking-id="{{ booking.id }}"
+    data-user-id="{{ user.id|default:'' }}"
+    data-csrf-token="{{ csrf_token }}"
+    data-cancel-url="{% url 'booking:cancel_booking' booking.id %}"
+    data-is-rider="{% if user == booking.rider %}true{% else %}false{% endif %}"
+    data-booking-status="{{ booking.status }}"
+    data-payment-verified="{{ booking.payment_verified|yesno:'true,false' }}"
+>
     <div class="container">
         <h1>Booking #{{ booking.id }} Status</h1>
         <hr>
@@ -119,17 +127,7 @@
         <div id="message"></div>
     </div>
 
-    <script>
-        window.BOOKING_DETAIL_CONFIG = {
-            bookingId: '{{ booking.id }}',
-            userId: {{ user.id|default:'null' }},
-            csrfToken: '{{ csrf_token }}',
-            cancelUrl: '{% url "booking:cancel_booking" booking.id %}',
-            isRider: {% if user == booking.rider %}true{% else %}false{% endif %},
-            bookingStatus: '{{ booking.status }}',
-            paymentVerified: {{ booking.payment_verified|yesno:"true,false" }}
-        };
-    </script>
+    <script src="{% static 'booking/js/booking_detail_config.js' %}"></script>
     <script src="{% static 'booking/js/booking_detail.js' %}?v=1"></script>
     <script src="{% static 'booking/js/rider_payment_pin.js' %}"></script>
 </body>

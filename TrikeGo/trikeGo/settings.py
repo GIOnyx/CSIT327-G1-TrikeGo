@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     'user',
     'booking',
     'chat',
+    'wallet',
 ]
 
 MIDDLEWARE = [

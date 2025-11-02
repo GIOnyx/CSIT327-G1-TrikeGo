@@ -34,6 +34,7 @@ urlpatterns = [
     path('', include('user.urls')),  # Handles user-related URLs like login, dashboards, etc.
     # Chat API and views
     path('chat/', include('chat.urls')),
+    path('wallet/', include('wallet.urls')),
 ]
 
 # Development helper: serve static files directly from the `static/` dirs when

@@ -306,8 +306,32 @@ body {
 /* Driver loader / spinner (initial load + per-review first view) */
 .route-loader { display:flex; align-items:center; justify-content:center; gap:10px; }
 .route-loader.hidden { display:none; }
-#driver-route-loader { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 220px; padding: 8px 12px; background: rgba(255,255,255,0.98); border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,0.12); z-index: 2000; pointer-events: none; font-size:14px; color:#222 }
-.spinner { border-radius:50%; border:4px solid #eee; border-top-color:#28a745; width:30px; height:30px; animation: spin 1s linear infinite; }
+#driver-route-loader {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2250;
+  background: rgba(255, 255, 255, 0.98);
+  padding: 10px 12px;
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  pointer-events: none;
+  font-size: 14px;
+  color: #222;
+}
+#driver-route-loader.hidden { display: none !important; }
+#driver-route-loader .spinner {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 3px solid #e6e6e6;
+  border-top-color: #007bff;
+  animation: spin 1s linear infinite;
+}
 @keyframes spin { to { transform: rotate(360deg); } }
 .route-loader-text { font-weight:600; color:#222; }
 
@@ -417,8 +441,10 @@ body.sidebar-expanded .driver-info-card {
 }
 
 /* When history panel is open, move itinerary to the right */
-body.history-panel-open .driver-info-card {
-  left: 508px; /* 108px (sidebar+gap) + 380px (history) + 20px (gap) */
+body.history-panel-open .driver-info-card,
+body.wallet-panel-open .driver-info-card,
+body.rides-panel-open .driver-info-card {
+  left: 508px; /* 108px (sidebar+gap) + 380px (panel) + 20px (gap) */
 }
 
 .driver-info-card .itinerary-summary,

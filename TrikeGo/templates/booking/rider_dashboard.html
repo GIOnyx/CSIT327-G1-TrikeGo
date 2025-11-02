@@ -8,7 +8,13 @@
     <link rel="stylesheet" href="{% static 'user/css/rider_dashboard.css' %}?v=5" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
 </head>
-<body {% if active_bookings and active_bookings|length > 0 %}class="booking-active"{% endif %}>
+<body
+    {% if active_bookings and active_bookings|length > 0 %}class="booking-active"{% endif %}
+    data-ors-api-key="{{ settings.OPENROUTESERVICE_API_KEY }}"
+    data-user-id="{{ user.id|default:'' }}"
+    data-csrf-token="{{ csrf_token }}"
+    data-cancel-booking-url-template="{% url 'user:cancel_booking' 0 %}"
+>
     {# Header removed: dashboard title moved out per UI refinement. Logout moved to sidebar icon. #}
 
     <!-- Payment PIN Verification Modal for Rider -->
@@ -59,6 +65,14 @@
             </button>
         </div>
     </div>
+
+    {% if active_bookings %}
+        {% for booking in active_bookings %}
+            {% if booking.status == 'completed' and not booking.payment_verified %}
+                <div class="pending-payment-data" data-booking-id="{{ booking.id }}" data-fare="{{ booking.fare|default:'0' }}" style="display:none;"></div>
+            {% endif %}
+        {% endfor %}
+    {% endif %}
 
     {# Trip History Overlay Panel #}
     <div id="rider-history-panel" style="display: none; position: fixed; top: 20px; left: 108px; width: 380px; height: calc(100vh - 40px); background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); z-index: 1500; overflow: hidden;">
@@ -173,7 +187,7 @@
             <div class="booking-warning" style="background:#fff3cd;border:1px solid #ffeeba;color:#856404;padding:12px 14px;border-radius:8px;margin-bottom:12px;">
                 <strong>Payment pending for Trip #{{ latest_unpaid_booking.id }}.</strong>
                 Please verify the cash payment from your driver via Trip History before booking another ride.
-                <a href="#" onclick="document.getElementById('rider-history-icon').click();return false;" style="color:#0f2341;font-weight:600;">Open Trip History</a>
+                <a href="#" id="open-trip-history-link" style="color:#0f2341;font-weight:600;">Open Trip History</a>
             </div>
             {% endif %}
             <form class="booking-form" method="POST" action="{% url 'user:rider_dashboard' %}">
@@ -298,246 +312,43 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
-    <script>
-        // Runtime configuration provided to the extracted rider_dashboard JS file.
-        window.RIDER_DASH_CONFIG = {
-            ORS_API_KEY: '{{ settings.OPENROUTESERVICE_API_KEY }}',
-            userId: {{ user.id|default:'null' }},
-            csrfToken: '{{ csrf_token }}'
-        };
-        // Cancel URL template: contains /0/ which will be replaced with the real booking id by the static JS
-        window.RIDER_DASH_CONFIG.cancelBookingUrlTemplate = "{% url 'user:cancel_booking' 0 %}";
-    </script>
-        <script src="{% static 'booking/js/rider_dashboard.js' %}?v=6"></script>
-        <script src="{% static 'booking/js/trip_history.js' %}"></script>
-    </script>
+    <script src="{% static 'booking/js/rider_dashboard_config.js' %}"></script>
+    <script src="{% static 'booking/js/rider_dashboard.js' %}?v=6"></script>
+    <script src="{% static 'booking/js/trip_history.js' %}"></script>
+    <script src="{% static 'booking/js/rider_dashboard_pin.js' %}"></script>
+    <script src="{% static 'booking/js/rider_dashboard_rating.js' %}"></script>
 
-</body>
-    
-    <!-- Rider Payment PIN Modal Script -->
-    <script>
-    (function() {
-        const modal = document.getElementById('rider-payment-pin-modal');
-        if (!modal) return;
-        const modalFare = document.getElementById('rider-modal-fare');
-        const pinInput = document.getElementById('rider-pin-input');
-        const verifyBtn = document.getElementById('rider-verify-pin-btn');
-        const closeBtn = document.getElementById('rider-modal-close-btn');
-        const errorMsg = document.getElementById('rider-pin-error');
-        const attemptsCount = document.getElementById('attempts-count');
-        const waitingSection = document.getElementById('rider-pin-waiting-section');
-        const entrySection = document.getElementById('rider-pin-entry-section');
-        const successSection = document.getElementById('rider-pin-success-section');
-        let currentBookingId = null;
-        let pollingInterval = null;
-        window.showRiderPaymentPINModal = function(bookingId, fare) {
-            currentBookingId = bookingId;
-            modalFare.textContent = `₱${parseFloat(fare).toFixed(2)}`;
-            
-            console.log('Opening rider payment modal for booking:', bookingId, 'Fare:', fare);
-            
-            // Skip waiting section, go directly to PIN entry
-            waitingSection.style.display = 'none';
-            entrySection.style.display = 'block';
-            successSection.style.display = 'none';
-            errorMsg.style.display = 'none';
-            pinInput.value = '';
-            
-            // Fetch actual attempts remaining from server
-            fetch(`/booking/api/${bookingId}/payment/pin-status/`)
-                .then(response => response.json())
-                .then(data => {
-                    console.log('PIN status fetched:', data);
-                    attemptsCount.textContent = data.attempts_remaining || 3;
+    {% if unrated_booking %}
+    <div id="ratingModal" class="modal" style="display: block; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4);">
+        <div class="modal-content" style="background-color: #fefefe; margin: 15% auto; padding: 20px; border: 1px solid #888; width: 80%; max-width: 400px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.3);">
+            <h3 class="text-center">Rate Your Driver! ⭐️</h3>
+            <p class="text-center text-muted">Trip to: {{ unrated_booking.destination_address }}</p>
+
+            <form id="rating-form" method="post" action="{% url 'user:submit_rating_ajax' unrated_booking.id %}">
+                {% csrf_token %}
+                
+                <div class="form-group text-center my-3">
                     
-                    if (!data.pin_exists) {
-                        console.warn('No PIN exists for this booking yet!');
-                    }
-                    if (data.pin_expired) {
-                        console.warn('PIN has expired!');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error fetching PIN status:', error);
-                    attemptsCount.textContent = '3'; // Fallback to default
-                });
-            
-            modal.style.display = 'flex';
-            pinInput.focus(); // Auto-focus on PIN input
-        };
-        function startPollingForPIN() {
-            if (pollingInterval) clearInterval(pollingInterval);
-            pollingInterval = setInterval(async () => {
-                try {
-                    const response = await fetch(`/booking/api/${currentBookingId}/payment/pin-status/`);
-                    const data = await response.json();
-                    if (data.pin_exists && !data.pin_expired) {
-                        clearInterval(pollingInterval);
-                        waitingSection.style.display = 'none';
-                        entrySection.style.display = 'block';
-                        attemptsCount.textContent = data.attempts_remaining || 3;
-                        pinInput.focus();
-                    } else if (data.payment_verified) {
-                        clearInterval(pollingInterval);
-                        showSuccess();
-                    }
-                } catch (error) {
-                    console.error('Error:', error);
-                }
-            }, 2000);
-        }
-        async function verifyPIN() {
-            const pin = pinInput.value.trim();
-            if (pin.length !== 4) {
-                showError('Please enter a 4-digit PIN');
-                return;
-            }
-            
-            console.log('Verifying PIN for booking:', currentBookingId, 'PIN:', pin);
-            
-            verifyBtn.disabled = true;
-            errorMsg.style.display = 'none';
-            try {
-                const response = await fetch(`/booking/api/${currentBookingId}/payment/verify-pin/`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': window.RIDER_DASH_CONFIG.csrfToken
-                    },
-                    body: JSON.stringify({ pin: pin })
-                });
-                
-                const data = await response.json();
-                console.log('PIN verification response:', data);
-                
-                if (response.ok && data.status === 'success') {
-                    console.log('PIN verified successfully');
-                    showSuccess();
-                } else {
-                    console.error('PIN verification failed:', data);
-                    showError(data.message || 'Invalid PIN');
-                    attemptsCount.textContent = data.attempts_remaining || 0;
-                    pinInput.value = '';
-                    pinInput.focus();
-                }
-            } catch (error) {
-                console.error('Error verifying PIN:', error);
-                showError('Failed to verify PIN');
-            } finally {
-                verifyBtn.disabled = false;
-            }
-        }
-        function showError(message) {
-            errorMsg.textContent = message;
-            errorMsg.style.display = 'block';
-            pinInput.style.borderColor = '#dc3545';
-        }
-        function showSuccess() {
-            entrySection.style.display = 'none';
-            successSection.style.display = 'block';
-            setTimeout(() => {
-                modal.style.display = 'none';
-                window.location.reload();
-            }, 3000);
-        }
-        verifyBtn.addEventListener('click', verifyPIN);
-        pinInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') verifyPIN();
-        });
-        closeBtn.addEventListener('click', function() {
-            modal.style.display = 'none';
-            if (pollingInterval) clearInterval(pollingInterval);
-        });
-        {% if active_bookings %}
-        {% for booking in active_bookings %}
-        {% if booking.status == 'completed' and not booking.payment_verified %}
-        setTimeout(() => {
-            showRiderPaymentPINModal({{ booking.id }}, {{ booking.fare|default:0 }});
-        }, 1000);
-        {% endif %}
-        {% endfor %}
-        {% endif %}
-    })();
-    </script>
+                    {# The label is usually hidden by CSS in star ratings, but keep it for accessibility #}
+                    {{ rating_form.rating_value.label_tag }}
 
-</body>
-</html>
-
-
-{% if unrated_booking %}
-<div id="ratingModal" class="modal" style="display: block; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4);">
-    <div class="modal-content" style="background-color: #fefefe; margin: 15% auto; padding: 20px; border: 1px solid #888; width: 80%; max-width: 400px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.3);">
-        <h3 class="text-center">Rate Your Driver! ⭐️</h3>
-        <p class="text-center text-muted">Trip to: {{ unrated_booking.destination_address }}</p>
-
-        <form id="rating-form" method="post" action="{% url 'user:submit_rating_ajax' unrated_booking.id %}">
-            {% csrf_token %}
-            
-            <div class="form-group text-center my-3">
-                
-                {# The label is usually hidden by CSS in star ratings, but keep it for accessibility #}
-                {{ rating_form.rating_value.label_tag }}
-
-                {# 👇 THE CRITICAL CHANGE: Added the rating-stars class container 👇 #}
-                <div class="rating-stars">
-                    {{ rating_form.rating_value }}
+                    {# 👇 THE CRITICAL CHANGE: Added the rating-stars class container 👇 #}
+                    <div class="rating-stars">
+                        {{ rating_form.rating_value }}
+                    </div>
+                    
+                    {% if rating_form.rating_value.errors %}<div class="text-danger">{{ rating_form.rating_value.errors }}</div>{% endif %}
                 </div>
                 
-                {% if rating_form.rating_value.errors %}<div class="text-danger">{{ rating_form.rating_value.errors }}</div>{% endif %}
-            </div>
-            
-            <div class="form-group mb-3">
-                {{ rating_form.feedback_text.label_tag }}
-                {{ rating_form.feedback_text }}
-            </div>
-            
-            <button type="submit" class="btn btn-primary w-100">Submit Rating</button>
-        </form>
+                <div class="form-group mb-3">
+                    {{ rating_form.feedback_text.label_tag }}
+                    {{ rating_form.feedback_text }}
+                </div>
+                
+                <button type="submit" class="btn btn-primary w-100">Submit Rating</button>
+            </form>
+        </div>
     </div>
-</div>
-
-<script>
-// --- JavaScript to handle AJAX submission and modal closing ---
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('rating-form');
-    const modal = document.getElementById('ratingModal');
-
-    if (form) {
-        form.addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            // Collect form data
-            const formData = new FormData(form);
-            
-            fetch(form.action, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-CSRFToken': '{{ csrf_token }}' // Ensure CSRF token is sent
-                }
-            })
-            .then(response => response.json().then(data => ({status: response.status, body: data})))
-            .then(result => {
-                if (result.status === 200) {
-                    // Success: Hide modal and reload/refresh relevant data
-                    modal.style.display = 'none';
-                    alert(result.body.message); 
-                    // Refresh the page to clear the unrated_booking state
-                    window.location.reload(); 
-                } else {
-                    // Handle validation errors (e.g., if no star was selected)
-                    alert('Error submitting rating. Please check all fields.');
-                    console.error('Rating submission failed:', result.body);
-                }
-            })
-            .catch(error => {
-                console.error('Network or system error:', error);
-                alert('A network error occurred. Please try again.');
-            });
-        });
-    }
-});
-</script>
-{% endif %}
+    {% endif %}
 </body>
 </html>

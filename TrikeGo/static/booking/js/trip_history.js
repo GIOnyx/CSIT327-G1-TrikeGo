@@ -5,6 +5,8 @@
     const driverHistoryPanel = document.getElementById('driver-history-panel');
     const closeDriverHistoryPanel = document.getElementById('close-driver-history-panel');
     const historyList = document.getElementById('history-trips-list');
+    const walletPanel = document.getElementById('driver-wallet-panel');
+    const ridesPanel = document.getElementById('driver-rides-panel');
     
     // Rider elements  
     const riderHistoryIcon = document.getElementById('rider-history-icon');
@@ -13,60 +15,88 @@
     const riderHistoryList = document.getElementById('rider-history-list');
     
     function getStatusBadge(status) {
-        const badges = {
-            'pending': '<span style="background:#ffc107;color:#000;padding:2px 8px;border-radius:4px;font-size:11px;">PENDING</span>',
-            'accepted': '<span style="background:#17a2b8;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;">ACCEPTED</span>',
-            'on_the_way': '<span style="background:#007bff;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;">ON THE WAY</span>',
-            'started': '<span style="background:#28a745;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;">STARTED</span>',
-            'completed': '<span style="background:#6c757d;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;">COMPLETED</span>',
-            'cancelled': '<span style="background:#dc3545;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;">CANCELLED</span>'
+        const mapping = {
+            pending: { label: 'Pending', tone: 'warning' },
+            accepted: { label: 'Accepted', tone: 'info' },
+            on_the_way: { label: 'On the Way', tone: 'info' },
+            started: { label: 'In Progress', tone: 'progress' },
+            completed: { label: 'Completed', tone: 'success' },
+            cancelled: { label: 'Cancelled', tone: 'danger' },
+            cancelled_by_rider: { label: 'Cancelled (Rider)', tone: 'danger' },
+            cancelled_by_driver: { label: 'Cancelled (Driver)', tone: 'danger' },
+            no_driver_found: { label: 'No Driver Found', tone: 'warning' }
         };
-        return badges[status] || status;
+
+        const fallbackLabel = status ? status.replace(/_/g, ' ') : 'Status';
+        const config = mapping[status] || { label: fallbackLabel, tone: 'muted' };
+        return `<span class="status-badge status-badge--${config.tone}">${config.label.toUpperCase()}</span>`;
     }
     
     function getPaymentBadge(status, verified) {
         if (status !== 'completed') {
-            return '<span style="background:#e9ecef;color:#6c757d;padding:2px 8px;border-radius:4px;font-size:11px;">N/A</span>';
+            return '<span class="status-badge status-badge--muted">N/A</span>';
         }
-        return verified 
-            ? '<span style="background:#28a745;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;">✅ PAID</span>'
-            : '<span style="background:#dc3545;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;">⚠️ UNPAID</span>';
+        return verified
+            ? '<span class="status-badge status-badge--success">PAID</span>'
+            : '<span class="status-badge status-badge--danger">UNPAID</span>';
+    }
+
+    function formatDistance(kilometers) {
+        if (kilometers === null || kilometers === undefined) {
+            return '';
+        }
+        const numeric = Number(kilometers);
+        if (!Number.isFinite(numeric)) {
+            return '';
+        }
+        const precision = numeric >= 100 ? 0 : 2;
+        return `${numeric.toFixed(precision)} km`;
     }
     
     async function loadDriverTripHistory() {
-        historyList.innerHTML = '<p style="text-align:center;padding:20px;">Loading...</p>';
+        historyList.innerHTML = '<p class="driver-history-panel__empty">Loading trip history...</p>';
         try {
             const response = await fetch('/api/driver/trip-history/');
             const data = await response.json();
             if (data.status === 'success' && data.trips.length > 0) {
-                let html = '<div style="display:flex;flex-direction:column;gap:12px;">';
+                let html = '<div class="driver-history-card-list">';
                 data.trips.forEach(trip => {
                     const needsPayment = trip.status === 'completed' && !trip.paymentVerified;
+                    const distanceDisplay = formatDistance(trip.distanceKm);
                     html += `
-                        <div style="background:white;padding:14px;border-radius:8px;border:1px solid #dee2e6;box-shadow:0 2px 4px rgba(0,0,0,0.08);">
-                            <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
-                                <strong style="font-size:14px;color:#0b2340;">Trip #${trip.id}</strong>
-                                <span style="font-size:11px;color:#6c757d;">${trip.date}</span>
+                        <div class="driver-history-card">
+                            <div class="driver-history-card__header">
+                                <span class="driver-history-card__title">Trip #${trip.id}</span>
+                                <span class="driver-history-card__date">${trip.date}</span>
                             </div>
-                            <div style="font-size:12px;color:#495057;margin-bottom:6px;">
-                                <strong>Rider:</strong> ${trip.riderName}
+                            <div class="driver-history-card__details">
+                                <div class="driver-history-card__row">
+                                    <span class="driver-history-card__label">rider</span>
+                                    <span class="driver-history-card__value">${trip.riderName}</span>
+                                </div>
+                                <div class="driver-history-card__row">
+                                    <span class="driver-history-card__label">from:</span>
+                                    <span class="driver-history-card__value">${trip.pickup}</span>
+                                </div>
+                                <div class="driver-history-card__row">
+                                    <span class="driver-history-card__label">to:</span>
+                                    <span class="driver-history-card__value">${trip.destination}</span>
+                                </div>
+                                ${distanceDisplay ? `
+                                <div class="driver-history-card__row">
+                                    <span class="driver-history-card__label">distance:</span>
+                                    <span class="driver-history-card__value">${distanceDisplay}</span>
+                                </div>` : ''}
                             </div>
-                            <div style="font-size:12px;color:#6c757d;margin-bottom:4px;">
-                                <strong style="color:#495057;">From:</strong> ${trip.pickup}
-                            </div>
-                            <div style="font-size:12px;color:#6c757d;margin-bottom:10px;">
-                                <strong style="color:#495057;">To:</strong> ${trip.destination}
-                            </div>
-                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-                                <span style="font-weight:bold;color:#0b2340;font-size:16px;">₱${trip.fare.toFixed(2)}</span>
-                                <div style="display:flex;gap:6px;">
+                            <div class="driver-history-card__footer">
+                                <span class="driver-history-card__fare">₱${trip.fare.toFixed(2)}</span>
+                                <div class="driver-history-card__badges">
                                     ${getStatusBadge(trip.status)}
                                     ${getPaymentBadge(trip.status, trip.paymentVerified)}
                                 </div>
                             </div>
                             ${needsPayment ? `
-                                <button onclick="window.showPaymentPINModal(${trip.id}, ${trip.fare})" 
-                                        style="width:100%;background:#007bff;color:white;border:none;padding:10px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">
+                                <button class="driver-history-card__action" onclick="window.showPaymentPINModal(${trip.id}, ${trip.fare})">
                                     Generate PIN to Verify Payment
                                 </button>
                             ` : ''}
@@ -76,11 +106,11 @@
                 html += '</div>';
                 historyList.innerHTML = html;
             } else {
-                historyList.innerHTML = '<p style="text-align:center;padding:20px;color:#666;">No trip history yet</p>';
+                historyList.innerHTML = '<p class="driver-history-panel__empty">No trip history yet</p>';
             }
         } catch (error) {
             console.error('Error loading trip history:', error);
-            historyList.innerHTML = '<p style="text-align:center;padding:20px;color:#dc3545;">Failed to load trips</p>';
+            historyList.innerHTML = '<p class="driver-history-panel__empty" style="color:#c0392b;">Failed to load trips</p>';
         }
     }
     
@@ -93,34 +123,44 @@
             const response = await fetch('/api/rider/trip-history/');
             const data = await response.json();
             if (data.status === 'success' && data.trips.length > 0) {
-                let html = '<div style="display:flex;flex-direction:column;gap:12px;">';
+                let html = '<div class="driver-history-card-list">';
                 data.trips.forEach(trip => {
                     const needsPayment = trip.status === 'completed' && !trip.paymentVerified;
+                    const distanceDisplay = formatDistance(trip.distanceKm);
                     html += `
-                        <div style="background:white;padding:14px;border-radius:8px;border:1px solid #dee2e6;box-shadow:0 2px 4px rgba(0,0,0,0.08);">
-                            <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
-                                <strong style="font-size:14px;color:#0b2340;">Trip #${trip.id}</strong>
-                                <span style="font-size:11px;color:#6c757d;">${trip.date}</span>
+                        <div class="driver-history-card">
+                            <div class="driver-history-card__header">
+                                <span class="driver-history-card__title">Trip #${trip.id}</span>
+                                <span class="driver-history-card__date">${trip.date}</span>
                             </div>
-                            <div style="font-size:12px;color:#495057;margin-bottom:6px;">
-                                <strong>Driver:</strong> ${trip.driverName}
+                            <div class="driver-history-card__details">
+                                <div class="driver-history-card__row">
+                                    <span class="driver-history-card__label">driver</span>
+                                    <span class="driver-history-card__value">${trip.driverName}</span>
+                                </div>
+                                <div class="driver-history-card__row">
+                                    <span class="driver-history-card__label">from:</span>
+                                    <span class="driver-history-card__value">${trip.pickup}</span>
+                                </div>
+                                <div class="driver-history-card__row">
+                                    <span class="driver-history-card__label">to:</span>
+                                    <span class="driver-history-card__value">${trip.destination}</span>
+                                </div>
+                                ${distanceDisplay ? `
+                                <div class="driver-history-card__row">
+                                    <span class="driver-history-card__label">distance:</span>
+                                    <span class="driver-history-card__value">${distanceDisplay}</span>
+                                </div>` : ''}
                             </div>
-                            <div style="font-size:12px;color:#6c757d;margin-bottom:4px;">
-                                <strong style="color:#495057;">From:</strong> ${trip.pickup}
-                            </div>
-                            <div style="font-size:12px;color:#6c757d;margin-bottom:10px;">
-                                <strong style="color:#495057;">To:</strong> ${trip.destination}
-                            </div>
-                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-                                <span style="font-weight:bold;color:#0b2340;font-size:16px;">₱${trip.fare.toFixed(2)}</span>
-                                <div style="display:flex;gap:6px;">
+                            <div class="driver-history-card__footer">
+                                <span class="driver-history-card__fare">₱${trip.fare.toFixed(2)}</span>
+                                <div class="driver-history-card__badges">
                                     ${getStatusBadge(trip.status)}
                                     ${getPaymentBadge(trip.status, trip.paymentVerified)}
                                 </div>
                             </div>
                             ${needsPayment ? `
-                                <button onclick="window.showRiderPaymentPINModal(${trip.id}, ${trip.fare})" 
-                                        style="width:100%;background:#28a745;color:white;border:none;padding:10px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">
+                                <button class="driver-history-card__action" onclick="window.showRiderPaymentPINModal(${trip.id}, ${trip.fare})">
                                     Enter PIN to Verify Payment
                                 </button>
                             ` : ''}
@@ -138,15 +178,51 @@
         }
     }
     
+    function hideDriverHistoryPanelOverlay() {
+        if (!driverHistoryPanel) {
+            return;
+        }
+        driverHistoryPanel.style.display = 'none';
+        document.body.classList.remove('history-panel-open');
+        driverHistoryPanel.setAttribute('aria-hidden', 'true');
+    }
+
+    function showDriverHistoryPanelOverlay() {
+        if (!driverHistoryPanel) {
+            return;
+        }
+        driverHistoryPanel.style.display = 'flex';
+        document.body.classList.add('history-panel-open');
+        driverHistoryPanel.setAttribute('aria-hidden', 'false');
+    }
+
+    window.hideDriverHistoryPanel = hideDriverHistoryPanelOverlay;
+    window.closeDriverHistoryPanel = hideDriverHistoryPanelOverlay;
+
     // Driver history icon handler - Show overlay panel
     if (historyIcon && driverHistoryPanel) {
         historyIcon.addEventListener('click', function(e) {
             e.preventDefault();
-            driverHistoryPanel.style.display = 'block';
-            
-            // Add body class to trigger CSS transitions for itinerary panel
-            document.body.classList.add('history-panel-open');
-            
+            if (window.DriverPanelManager && typeof window.DriverPanelManager.closeAll === 'function') {
+                window.DriverPanelManager.closeAll('history');
+            } else {
+                if (typeof window.closeDriverWalletPanel === 'function') {
+                    window.closeDriverWalletPanel();
+                } else if (walletPanel) {
+                    walletPanel.style.display = 'none';
+                    walletPanel.setAttribute('aria-hidden', 'true');
+                    document.body.classList.remove('wallet-panel-open');
+                }
+                if (typeof window.closeDriverRidesPanel === 'function') {
+                    window.closeDriverRidesPanel();
+                } else if (ridesPanel) {
+                    ridesPanel.style.display = 'none';
+                    ridesPanel.setAttribute('aria-hidden', 'true');
+                    document.body.classList.remove('rides-panel-open');
+                }
+            }
+
+            showDriverHistoryPanelOverlay();
             loadDriverTripHistory();
         });
     }
@@ -154,11 +230,7 @@
     // Close driver panel handler
     if (closeDriverHistoryPanel) {
         closeDriverHistoryPanel.addEventListener('click', function() {
-            if (driverHistoryPanel) driverHistoryPanel.style.display = 'none';
-            
-            // Remove body class to reset itinerary panel position
-            document.body.classList.remove('history-panel-open');
-
+            hideDriverHistoryPanelOverlay();
         });
     }
     
@@ -166,8 +238,16 @@
     if (riderHistoryIcon && riderHistoryPanel) {
         riderHistoryIcon.addEventListener('click', function(e) {
             e.preventDefault();
+            if (typeof window.closeDriverWalletPanel === 'function') {
+                window.closeDriverWalletPanel();
+            }
+            if (window.DriverPanelManager && typeof window.DriverPanelManager.closeAll === 'function') {
+                window.DriverPanelManager.closeAll('history');
+            } else if (typeof window.closeDriverWalletPanel === 'function') {
+                window.closeDriverWalletPanel();
+            }
             riderHistoryPanel.style.display = 'block';
-            // Add body class to shift booking card
+            riderHistoryPanel.setAttribute('aria-hidden', 'false');
             document.body.classList.add('history-panel-open');
             loadRiderTripHistory();
         });
@@ -176,8 +256,10 @@
     // Close rider panel handler
     if (closeRiderHistoryPanel) {
         closeRiderHistoryPanel.addEventListener('click', function() {
-            if (riderHistoryPanel) riderHistoryPanel.style.display = 'none';
-            // Remove body class to reset booking card position
+            if (riderHistoryPanel) {
+                riderHistoryPanel.style.display = 'none';
+                riderHistoryPanel.setAttribute('aria-hidden', 'true');
+            }
             document.body.classList.remove('history-panel-open');
         });
     }

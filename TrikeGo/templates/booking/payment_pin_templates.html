@@ -1,0 +1,158 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment PIN Verification Templates</title>
+    <link rel="stylesheet" href="{% static 'booking/css/payment_pin.css' %}">
+</head>
+<body>
+    <!--
+        Payment PIN Verification - Frontend Template Examples
+        Add these snippets to your driver and rider dashboard templates
+    -->
+    <div class="container">
+        <h1 class="section-title">Payment PIN Verification UI Snippets</h1>
+        <p>Use the sections below to integrate the cash payment PIN flow into the driver and rider dashboards. All supporting styles and JavaScript live in static assets so you can copy the markup directly without inline scripts.</p>
+
+        <!-- DRIVER DASHBOARD -->
+        <section>
+            <h2 class="section-title">Driver Dashboard – PIN Generation</h2>
+            <p class="text-muted">Add this card to <code>templates/booking/driver_dashboard.html</code> once a trip has been marked as started or completed.</p>
+
+            <div id="payment-pin-section" class="card mt-3 payment-pin-section is-hidden">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mt-0 mb-0">💰 Cash Payment Verification</h5>
+                </div>
+                <div class="card-body">
+                    <div id="generate-pin-container" class="pin-generate-container">
+                        <p class="mb-3">Trip completed! To confirm cash payment, generate a PIN and share it with the rider.</p>
+                        <p class="text-muted mb-3">Fare: ₱<span id="driver-fare-amount">0.00</span></p>
+                        <button id="generate-pin-btn" class="btn btn-primary btn-lg">
+                            🔑 Generate Payment PIN
+                        </button>
+                    </div>
+
+                    <div id="pin-display-container" class="pin-display-container is-hidden">
+                        <div class="alert alert-info">
+                            <h6 class="mt-0 mb-0">📢 Share this PIN with the rider:</h6>
+                        </div>
+
+                        <div class="pin-display text-center">
+                            <h1 class="display-3 font-weight-bold" id="pin-value">----</h1>
+                        </div>
+
+                        <div class="text-center mt-3">
+                            <p class="mb-2">⏱️ Expires in: <span id="pin-countdown" class="pin-countdown">5:00</span></p>
+                            <p class="text-muted small mb-0">Waiting for rider to confirm payment…</p>
+                        </div>
+
+                        <div class="text-center mt-3">
+                            <button id="regenerate-pin-btn" class="btn btn-outline-secondary btn-sm">
+                                🔄 Regenerate PIN
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="payment-verified-container" class="payment-verified-container is-hidden">
+                        <div class="alert alert-success payment-verified">
+                            <h4 class="mt-0">✅ Payment Verified!</h4>
+                            <p class="mb-0">Trip completed successfully.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- RIDER DASHBOARD -->
+        <section>
+            <h2 class="section-title">Rider Dashboard – PIN Entry</h2>
+            <p class="text-muted">Place this card inside <code>templates/booking/rider_dashboard.html</code> when a ride is in the <code>started</code> state and awaiting payment verification.</p>
+
+            <div id="payment-verification-section" class="card mt-3 payment-verification-section is-hidden">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mt-0 mb-0">💵 Cash Payment Confirmation</h5>
+                </div>
+                <div class="card-body">
+                    <div id="waiting-for-pin-container" class="waiting-for-pin">
+                        <p class="mb-3">Trip completed! Please pay the driver in cash.</p>
+                        <div class="alert alert-info fare-display">
+                            <strong>Amount to Pay: ₱<span id="rider-fare-amount">0.00</span></strong>
+                        </div>
+                        <p class="text-muted">
+                            <span class="spinner-border spinner-border-sm"></span>
+                            Waiting for driver to generate PIN…
+                        </p>
+                    </div>
+
+                    <div id="pin-entry-container" class="is-hidden">
+                        <div class="alert alert-warning fare-display">
+                            <strong>Amount Paid: ₱<span id="rider-fare-amount-2">0.00</span></strong>
+                        </div>
+
+                        <p class="mb-3">After paying, enter the 4-digit PIN provided by the driver:</p>
+
+                        <div class="form-group">
+                            <label for="pin-input">4-Digit PIN</label>
+                            <input
+                                type="text"
+                                id="pin-input"
+                                class="form-control-lg"
+                                placeholder="_ _ _ _"
+                                maxlength="4"
+                                pattern="[0-9]{4}"
+                                inputmode="numeric"
+                                autocomplete="off"
+                            >
+                            <small class="form-text text-muted">💡 Get this PIN from the driver after payment</small>
+                        </div>
+
+                        <button id="verify-pin-btn" class="btn btn-success btn-lg btn-block">✅ Verify Payment</button>
+
+                        <div id="pin-error" class="alert alert-danger pin-error is-hidden mt-3"></div>
+
+                        <p class="text-center mt-3 mb-0">
+                            <small class="text-muted">🔁 Attempts remaining: <span id="attempts-remaining" class="font-weight-bold">3</span></small>
+                        </p>
+                    </div>
+
+                    <div id="rider-payment-verified-container" class="is-hidden">
+                        <div class="alert alert-success payment-verified text-center">
+                            <h4 class="mt-0">✅ Payment Verified!</h4>
+                            <p class="mb-0">Thank you for using TrikeGo!</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- IMPLEMENTATION NOTES -->
+        <section class="usage-sample">
+            <h3 class="section-title">Implementation Notes</h3>
+            <ul class="list-unstyled">
+                <li>• Include <code>static/booking/css/payment_pin.css</code> for styling.</li>
+                <li>• Load <code>static/booking/js/payment_pin_templates_demo.js</code> to expose <code>showPaymentPINSection</code> and <code>showPaymentVerificationSection</code>.</li>
+                <li>• Call these helpers when the booking status transitions to <code>started</code> and you need to prompt driver/rider interactions.</li>
+            </ul>
+
+            <code>
+// Driver dashboard example
+showPaymentPINSection(bookingId, fareAmount);
+
+// Rider dashboard example
+showPaymentVerificationSection(bookingId, fareAmount);
+            </code>
+        </section>
+    </div>
+
+    <div id="payment-pin-demo-config"
+         data-demo-mode="true"
+         data-driver-booking-id="123"
+         data-driver-fare="50.00"
+         data-rider-booking-id="123"
+         data-rider-fare="50.00"></div>
+
+    <script src="{% static 'booking/js/payment_pin_templates_demo.js' %}"></script>
+</body>
+</html>
