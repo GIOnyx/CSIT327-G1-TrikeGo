@@ -11,9 +11,8 @@ class Migration(migrations.Migration):
     dependencies = [
     ('booking', '0009_add_payment_pin_verification'), 
     migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-]
-
-   operations = [
+    ]
+    operations = [
         migrations.SeparateDatabaseAndState(
             
             
