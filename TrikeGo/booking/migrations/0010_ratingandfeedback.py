@@ -13,22 +13,29 @@ class Migration(migrations.Migration):
     migrations.swappable_dependency(settings.AUTH_USER_MODEL),
 ]
 
-    operations = [
-        migrations.CreateModel(
-            name='RatingAndFeedback',
-            fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('rating_value', models.PositiveSmallIntegerField(choices=[(1, '1'), (2, '2'), (3, '3'), (4, '4'), (5, '5')], default=5, verbose_name='Star Rating')),
-                ('feedback_text', models.TextField(blank=True, null=True, verbose_name='Feedback/Comment')),
-                ('created_at', models.DateTimeField(default=django.utils.timezone.now)),
-                ('booking', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='rating', to='booking.booking', verbose_name='Trip Booking')),
-                ('rated_user', models.ForeignKey(blank=True, limit_choices_to={'trikego_user': 'D'}, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='ratings_received', to=settings.AUTH_USER_MODEL, verbose_name='Rated User (Driver)')),
-                ('rater', models.ForeignKey(limit_choices_to={'trikego_user': 'R'}, on_delete=django.db.models.deletion.CASCADE, related_name='ratings_given', to=settings.AUTH_USER_MODEL, verbose_name='Rater (Rider)')),
+   operations = [
+        migrations.SeparateDatabaseAndState(
+            
+            
+            state_operations=[
+                migrations.CreateModel(
+                    name='RatingAndFeedback',
+                    fields=[
+                        ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                        ('rating_value', models.PositiveSmallIntegerField(choices=[(1, '1'), (2, '2'), (3, '3'), (4, '4'), (5, '5')], default=5, verbose_name='Star Rating')),
+                        ('feedback_text', models.TextField(blank=True, null=True, verbose_name='Feedback/Comment')),
+                        ('created_at', models.DateTimeField(default=django.utils.timezone.now)),
+                        ('booking', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='rating', to='booking.booking', verbose_name='Trip Booking')),
+                        ('rated_user', models.ForeignKey(blank=True, limit_choices_to={'trikego_user': 'D'}, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='ratings_received', to=settings.AUTH_USER_MODEL, verbose_name='Rated User (Driver)')),
+                        ('rater', models.ForeignKey(limit_choices_to={'trikego_user': 'R'}, on_delete=django.db.models.deletion.CASCADE, related_name='ratings_given', to=settings.AUTH_USER_MODEL, verbose_name='Rater (Rider)')),
+                    ],
+                    options={
+                        'verbose_name': 'Rating and Feedback',
+                        'verbose_name_plural': 'Ratings and Feedback',
+                        'constraints': [models.UniqueConstraint(fields=('booking',), name='unique_booking_rating')],
+                    },
+                ),
             ],
-            options={
-                'verbose_name': 'Rating and Feedback',
-                'verbose_name_plural': 'Ratings and Feedback',
-                'constraints': [models.UniqueConstraint(fields=('booking',), name='unique_booking_rating')],
-            },
-        ),
+            database_operations=[],
+        )
     ]
