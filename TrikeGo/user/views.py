@@ -437,11 +437,12 @@ class RiderDashboard(View):
         if latest_booking and latest_booking.status == 'completed' and not latest_booking.payment_verified:
             latest_unpaid_booking = latest_booking
 
+        # This is the CORRECT code
         unrated_booking = Booking.objects.filter(
             rider=request.user,
             status='completed',
             payment_verified=True,
-        ).annotate(has_rating=timezone.now()).filter(rating__isnull=True).order_by('-end_time').first()
+        ).filter(rating__isnull=True).order_by('-end_time').first()
 
         rating_form = RatingForm() if unrated_booking else None
 
