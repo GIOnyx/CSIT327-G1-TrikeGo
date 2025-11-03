@@ -194,12 +194,21 @@ def _segment_route(
     start: Tuple[float, float],
     end: Tuple[float, float],
     routing_service: Optional[RoutingService],
-    cache: Dict[Tuple[float, float, float, float], Tuple[Optional[List[List[float]]], bool]],
-) -> Tuple[Optional[List[List[float]]], bool]:
-    """Return route points for a segment along with a flag indicating if ORS provided geometry."""
+    cache: Dict[Tuple[float, float, float, float], Tuple[Optional[List[List[float]]], bool, Dict[str, float]]],
+) -> Tuple[Optional[List[List[float]]], bool, Dict[str, float]]:
+    """Return route points for a segment and capture distance/ETA metadata."""
+
+    def _fallback_meta() -> Dict[str, float]:
+        distance_km = float(calculate_distance(start[0], start[1], end[0], end[1]))
+        # Assume 20 km/h average speed for fallback ETA estimates
+        duration_sec = 0
+        if distance_km > 0:
+            duration_sec = int(max(60, (distance_km / 20.0) * 3600))
+        return {'distanceKm': distance_km, 'durationSec': float(duration_sec)}
 
     if routing_service is None:
-        return None, False
+        meta = _fallback_meta()
+        return None, False, meta
 
     key = (
         round(start[0], 5),
@@ -218,32 +227,44 @@ def _segment_route(
             profile='driving-car'
         )
     except Exception:
-        cache[key] = (None, False)
+        meta = _fallback_meta()
+        cache[key] = (None, False, meta)
         return cache[key]
 
     if not route_info:
-        cache[key] = (None, False)
+        meta = _fallback_meta()
+        cache[key] = (None, False, meta)
         return cache[key]
 
     if route_info.get('too_close'):
         segment = [[float(start[0]), float(start[1])], [float(end[0]), float(end[1])]]
-        cache[key] = (segment, False)
+        meta = {
+            'distanceKm': float(route_info.get('distance') or 0.0),
+            'durationSec': float(route_info.get('duration') or 0.0)
+        }
+        cache[key] = (segment, False, meta)
         return cache[key]
 
     route_data = route_info.get('route_data') or {}
     features = route_data.get('features') or []
     if not features:
-        cache[key] = (None, False)
+        meta = _fallback_meta()
+        cache[key] = (None, False, meta)
         return cache[key]
 
     geometry = features[0].get('geometry') or {}
     coordinates = geometry.get('coordinates') or []
     if len(coordinates) < 2:
-        cache[key] = (None, False)
+        meta = _fallback_meta()
+        cache[key] = (None, False, meta)
         return cache[key]
 
     segment = [[float(coord[1]), float(coord[0])] for coord in coordinates]
-    cache[key] = (segment, True)
+    meta = {
+        'distanceKm': float(route_info.get('distance') or 0.0),
+        'durationSec': float(route_info.get('duration') or 0.0)
+    }
+    cache[key] = (segment, True, meta)
     return cache[key]
 
 
@@ -262,7 +283,7 @@ def _build_route_polyline(
     except Exception:
         routing_service = None
 
-    segment_cache: Dict[Tuple[float, float, float, float], Tuple[Optional[List[List[float]]], bool]] = {}
+    segment_cache: Dict[Tuple[float, float, float, float], Tuple[Optional[List[List[float]]], bool, Dict[str, float]]] = {}
 
     previous_coord = start_coord if start_coord else None
     if start_coord:
@@ -279,7 +300,7 @@ def _build_route_polyline(
             previous_coord = next_coord
             continue
 
-        segment, precise = _segment_route(previous_coord, next_coord, routing_service, segment_cache)
+        segment, precise, meta = _segment_route(previous_coord, next_coord, routing_service, segment_cache)
         used_precise_route = used_precise_route or precise
         segment_points: Optional[List[List[float]]] = None
         if segment:
@@ -295,12 +316,17 @@ def _build_route_polyline(
                 _append_unique_point(polyline, lat, lon)
             segment_points = fallback_segment
             precise = False
+            meta = meta or {'distanceKm': 0.0, 'durationSec': 0.0}
 
         if segment_points:
             segments.append({
                 'type': stop.stop_type,
                 'points': segment_points,
                 'precise': precise,
+                'bookingId': stop.booking_id,
+                'stopId': str(stop.stop_uid),
+                'distanceKm': float(meta.get('distanceKm', 0.0)),
+                'durationSec': float(meta.get('durationSec', 0.0)),
             })
 
         previous_coord = next_coord
@@ -626,6 +652,46 @@ def build_driver_itinerary(driver_user) -> Dict[str, object]:
     start_coord = _driver_start_location(driver_user)
     polyline, has_precise_route, segment_routes = _build_route_polyline(start_coord, ordered_stops)
 
+    stop_status_lookup = {stop['stopId']: stop.get('status', 'UPCOMING') for stop in stops_payload}
+    total_distance_km = 0.0
+    total_duration_sec = 0.0
+    completed_distance_km = 0.0
+    completed_duration_sec = 0.0
+    cumulative_distance_km = 0.0
+    cumulative_duration_sec = 0.0
+    booking_remaining_distance: Dict[int, float] = {}
+    booking_remaining_duration: Dict[int, float] = {}
+
+    for segment in segment_routes:
+        distance_km = float(segment.get('distanceKm') or 0.0)
+        duration_sec = float(segment.get('durationSec') or 0.0)
+
+        total_distance_km += distance_km
+        total_duration_sec += duration_sec
+
+        stop_id = str(segment.get('stopId')) if segment.get('stopId') is not None else None
+        if stop_id and stop_status_lookup.get(stop_id) == 'COMPLETED':
+            completed_distance_km += distance_km
+            completed_duration_sec += duration_sec
+
+        cumulative_distance_km += distance_km
+        cumulative_duration_sec += duration_sec
+
+        if segment.get('type') == 'DROPOFF' and segment.get('bookingId') is not None:
+            booking_id = int(segment['bookingId'])
+            remaining_distance = max(0.0, cumulative_distance_km - completed_distance_km)
+            remaining_duration = max(0.0, cumulative_duration_sec - completed_duration_sec)
+            booking_remaining_distance[booking_id] = remaining_distance
+            booking_remaining_duration[booking_id] = remaining_duration
+
+    remaining_distance_km = max(0.0, total_distance_km - completed_distance_km)
+    remaining_duration_sec = max(0.0, total_duration_sec - completed_duration_sec)
+
+    total_distance_km = float(round(max(0.0, total_distance_km), 3))
+    remaining_distance_km = float(round(remaining_distance_km, 3))
+    total_duration_sec = float(max(0.0, total_duration_sec))
+    remaining_duration_sec = float(max(0.0, remaining_duration_sec))
+
     booking_summaries: List[Dict[str, object]] = []
     for booking_id in unique_booking_ids:
         booking = bookings.get(booking_id)
@@ -635,6 +701,40 @@ def build_driver_itinerary(driver_user) -> Dict[str, object]:
         except (InvalidOperation, TypeError, ValueError):
             quantized = None
         fare_display = _format_currency(quantized or fare_decimal)
+
+        remaining_distance = booking_remaining_distance.get(booking_id)
+        remaining_duration = booking_remaining_duration.get(booking_id)
+
+        if remaining_distance is None and getattr(booking, 'estimated_distance', None) is not None:
+            try:
+                remaining_distance = float(booking.estimated_distance)
+            except (TypeError, ValueError, InvalidOperation):
+                remaining_distance = None
+
+        if remaining_duration is None and getattr(booking, 'estimated_duration', None) is not None:
+            try:
+                remaining_duration = float(booking.estimated_duration) * 60.0
+            except (TypeError, ValueError):
+                remaining_duration = None
+
+        remaining_minutes = None
+        remaining_duration_value = None
+        if remaining_duration is not None:
+            remaining_duration_value = float(max(0.0, remaining_duration))
+            remaining_minutes = int(max(0, math.ceil(remaining_duration_value / 60.0)))
+
+        remaining_distance_value = None
+        if remaining_distance is not None:
+            remaining_distance_value = float(round(max(0.0, remaining_distance), 3))
+
+        distance_display = None
+        if remaining_distance_value is not None:
+            distance_display = f"{remaining_distance_value:.1f} km"
+
+        duration_display = None
+        if remaining_minutes is not None:
+            duration_display = f"ETA ~{remaining_minutes} min"
+
         booking_summaries.append({
             'bookingId': booking_id,
             'status': booking.status,
@@ -642,6 +742,11 @@ def build_driver_itinerary(driver_user) -> Dict[str, object]:
             'fare': float(quantized) if quantized is not None else (float(fare_decimal) if fare_decimal is not None else None),
             'fareDisplay': fare_display,
             'passengers': booking_passengers.get(booking_id, int(getattr(booking, 'passengers', 1) or 1)),
+            'remainingDistanceKm': remaining_distance_value,
+            'remainingDistanceDisplay': distance_display,
+            'remainingDurationSec': remaining_duration_value,
+            'remainingDurationMinutes': remaining_minutes,
+            'remainingDurationDisplay': duration_display,
         })
 
     itinerary = {
@@ -657,6 +762,10 @@ def build_driver_itinerary(driver_user) -> Dict[str, object]:
         'fullRouteSegments': segment_routes,
         'driverStartCoordinate': [start_coord[0], start_coord[1]] if start_coord else None,
         'bookingSummaries': booking_summaries,
+        'totalDistanceKm': total_distance_km,
+        'totalDurationSec': total_duration_sec,
+        'remainingDistanceKm': remaining_distance_km,
+        'remainingDurationSec': remaining_duration_sec,
     }
 
     return {

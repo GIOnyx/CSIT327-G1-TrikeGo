@@ -35,6 +35,11 @@ urlpatterns = [
     # Chat API and views
     path('chat/', include('chat.urls')),
     path('wallet/', include('wallet.urls')),
+    # New focused apps
+    path('payments/', include('payments.urls')),
+    path('tracking/', include('tracking.urls')),
+    path('ratings/', include('ratings.urls')),
+    path('drivers/', include('drivers.urls')),
 ]
 
 # Development helper: serve static files directly from the `static/` dirs when

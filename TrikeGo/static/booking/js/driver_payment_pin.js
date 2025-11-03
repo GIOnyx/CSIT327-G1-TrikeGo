@@ -73,12 +73,17 @@ class DriverPaymentPIN {
         
         this.expiresAt = new Date(expiresAt);
         this.startCountdown();
+        this.showBanner('Share this PIN with the rider to confirm payment.', 'info');
     }
     
     startCountdown() {
         const countdownEl = document.getElementById(`countdown-${this.bookingId}`);
         if (!countdownEl) return;
         
+        if (this.countdownInterval) {
+            clearInterval(this.countdownInterval);
+        }
+
         this.countdownInterval = setInterval(() => {
             const now = new Date();
             const diff = Math.max(0, this.expiresAt - now);
@@ -89,14 +94,15 @@ class DriverPaymentPIN {
             countdownEl.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
             
             if (diff === 0) {
-                clearInterval(this.countdownInterval);
-                alert('PIN expired. Please generate a new one.');
-                location.reload();
+                this.handlePinExpired();
             }
         }, 1000);
     }
     
     startPolling() {
+        if (this.pollInterval) {
+            clearInterval(this.pollInterval);
+        }
         this.pollInterval = setInterval(() => this.checkPaymentStatus(), 2000);
     }
     
@@ -114,22 +120,118 @@ class DriverPaymentPIN {
     }
     
     onPaymentVerified() {
-        // Stop polling and countdown
-        clearInterval(this.pollInterval);
-        clearInterval(this.countdownInterval);
-        
-        // Show success and reload
-        alert('✅ Payment verified! Trip completed.');
-        location.reload();
+        this.showVerified();
+        try {
+            if (typeof window.fetchItineraryData === 'function') {
+                window.fetchItineraryData();
+            }
+        } catch (refreshErr) {
+            console.warn('Failed to refresh itinerary after payment verification', refreshErr);
+        }
+
+        document.dispatchEvent(new CustomEvent('driver:paymentVerified', {
+            detail: { bookingId: this.bookingId }
+        }));
     }
     
     showVerified() {
-        clearInterval(this.pollInterval);
-        clearInterval(this.countdownInterval);
+        this.clearTimers();
+
+        const genContainer = document.getElementById(`pin-gen-${this.bookingId}`);
+        const displayContainer = document.getElementById(`pin-display-${this.bookingId}`);
+        const section = document.getElementById(`payment-section-${this.bookingId}`);
+
+        if (genContainer) {
+            genContainer.style.display = 'none';
+        }
+        if (displayContainer) {
+            displayContainer.style.display = 'none';
+        }
+
+        if (section) {
+            let verified = section.querySelector('.payment-verified-container');
+            if (!verified) {
+                verified = document.createElement('div');
+                verified.className = 'payment-verified-container';
+                verified.innerHTML = '<div class="alert-success"><h4>Payment Verified!</h4><p>Trip completed successfully.</p></div>';
+                section.appendChild(verified);
+            }
+            verified.style.display = 'block';
+        }
+
+        this.showBanner('Payment verified! Trip completed successfully.', 'success');
+        this.expiresAt = null;
     }
     
     getCSRFToken() {
         return document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+    }
+
+    clearTimers() {
+        if (this.pollInterval) {
+            clearInterval(this.pollInterval);
+            this.pollInterval = null;
+        }
+        if (this.countdownInterval) {
+            clearInterval(this.countdownInterval);
+            this.countdownInterval = null;
+        }
+    }
+
+    handlePinExpired() {
+        this.clearTimers();
+        this.showBanner('PIN expired. Generate a new one to verify payment.', 'warning');
+        const displayContainer = document.getElementById(`pin-display-${this.bookingId}`);
+        const genContainer = document.getElementById(`pin-gen-${this.bookingId}`);
+        const section = document.getElementById(`payment-section-${this.bookingId}`);
+        if (displayContainer) {
+            displayContainer.style.display = 'none';
+        }
+        if (genContainer) {
+            genContainer.style.display = 'block';
+            const triggerBtn = genContainer.querySelector('.generate-pin-btn, .btn');
+            if (triggerBtn) {
+                triggerBtn.disabled = false;
+                triggerBtn.textContent = '🔑 Generate Payment PIN';
+            }
+        }
+        if (section) {
+            const verified = section.querySelector('.payment-verified-container');
+            if (verified) {
+                verified.style.display = 'none';
+            }
+        }
+        this.expiresAt = null;
+    }
+
+    showBanner(message, variant = 'info') {
+        const section = document.getElementById(`payment-section-${this.bookingId}`);
+        if (!section) return;
+
+        const bannerId = `pin-banner-${this.bookingId}`;
+        let banner = document.getElementById(bannerId);
+        if (!banner) {
+            banner = document.createElement('div');
+            banner.id = bannerId;
+            banner.className = 'pin-banner';
+            section.insertBefore(banner, section.firstChild);
+        }
+
+        const palette = {
+            success: { bg: '#d4edda', text: '#155724' },
+            warning: { bg: '#fff3cd', text: '#856404' },
+            error: { bg: '#f8d7da', text: '#721c24' },
+            info: { bg: '#d1ecf1', text: '#0c5460' }
+        };
+
+        const colors = palette[variant] || palette.info;
+        banner.style.backgroundColor = colors.bg;
+        banner.style.color = colors.text;
+        banner.style.padding = '10px 14px';
+        banner.style.marginBottom = '12px';
+        banner.style.borderRadius = '8px';
+        banner.style.fontWeight = '500';
+        banner.textContent = message;
     }
 }
 

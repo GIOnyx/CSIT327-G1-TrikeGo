@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Driver Dashboard - TrikeGo</title>
-    <link rel="stylesheet" href="{% static 'user/css/driver_dashboard.css' %}?v=3" />
+    <link rel="stylesheet" href="{% static 'user/css/driver_dashboard.css' %}?v=4" />
     <link rel="stylesheet" href="{% static 'wallet/css/driver_wallet_panel.css' %}?v=1" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
 </head>
@@ -164,7 +164,7 @@
                             {% endif %}
                             <div class="driver-ride-card__actions">
                                 <button class="btn btn-secondary review-ride-btn" data-booking-id="{{ ride.id }}">Review</button>
-                                <form class="accept-ride-form" data-booking-id="{{ ride.id }}" method="POST" action="{% url 'user:accept_ride' ride.id %}">
+                                <form class="accept-ride-form" data-booking-id="{{ ride.id }}" method="POST" action="{% url 'drivers:accept_ride' ride.id %}">
                                     {% csrf_token %}
                                     <button type="submit" class="btn btn-success" id="accept-btn-{{ ride.id }}">Accept</button>
                                 </form>
@@ -189,6 +189,13 @@
         <div class="spinner" role="status" aria-live="polite" aria-label="Fetching routes"></div>
         <div class="route-loader-text">Fetching routes…</div>
     </div>
+
+    <button id="driver-sos-button" class="sos-button" type="button" aria-label="Emergency SOS">
+        <span class="sos-button__progress" aria-hidden="true"></span>
+        <span class="sos-button__label" aria-hidden="true">SOS</span>
+        <span class="sos-button__hint">HOLD FOR 3 SECONDS TO CALL</span>
+    </button>
+    <span id="driver-sos-live-region" class="visually-hidden" aria-live="polite"></span>
 
     <div class="container">
         <div class="sidebar" aria-expanded="false">
@@ -224,7 +231,7 @@
                     </div>
                     <div style="margin-top:12px;">
                         <h4>Quick Actions</h4>
-                        <a href="{% url 'user:driver_active_books' %}" class="btn btn-sm btn-outline-primary" style="display:block;margin-bottom:8px;">View My Rides</a>
+                        <a href="{% url 'drivers:driver_active_books' %}" class="btn btn-sm btn-outline-primary" style="display:block;margin-bottom:8px;">View My Rides</a>
                         <a href="#" class="btn btn-sm btn-outline-secondary" style="display:block;">Update Profile</a>
                     </div>
                 </div>
@@ -250,6 +257,7 @@
                 </div>
                 <h3 id="summary-action-type">--</h3>
                 <p id="summary-address">Awaiting assignments.</p>
+                <p id="summary-meta" class="summary-meta text-muted" style="margin-bottom:12px;">&nbsp;</p>
                 <button id="summary-action-btn" class="btn btn-success" type="button" style="width: 100%;" disabled>Start</button>
             </div>
 
@@ -274,7 +282,7 @@
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
     <script src="{% static 'booking/js/driver_dashboard_config.js' %}"></script>
     <script src="{% static 'booking/js/driver_panel_manager.js' %}"></script>
-    <script src="{% static 'booking/js/driver_dashboard.js' %}?v=9"></script>
+    <script src="{% static 'booking/js/driver_dashboard.js' %}?v=10"></script>
     <script src="{% static 'wallet/js/driver_wallet.js' %}?v=2"></script>
     <script src="{% static 'booking/js/driver_rides_panel.js' %}?v=1"></script>
     <script src="{% static 'booking/js/trip_history.js' %}"></script>

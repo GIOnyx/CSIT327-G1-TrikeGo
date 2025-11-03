@@ -35,6 +35,11 @@ INSTALLED_APPS = [
     'booking',
     'chat',
     'wallet',
+    # New focused apps (feature split)
+    'payments',
+    'tracking',
+    'ratings',
+    'drivers',
 ]
 
 MIDDLEWARE = [

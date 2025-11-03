@@ -8,6 +8,26 @@ from .models import ChatMessage
 from booking.models import Booking
 
 
+CHAT_ACTIVE_STATUSES = {'accepted', 'on_the_way', 'started'}
+CHAT_READ_STATUSES = CHAT_ACTIVE_STATUSES | {'pending', 'completed'}
+
+
+def _chat_can_read(booking):
+    if booking.status not in CHAT_READ_STATUSES:
+        return False
+    if booking.status == 'pending' and booking.driver is None:
+        return False
+    return True
+
+
+def _chat_can_post(booking):
+    if booking.status in CHAT_ACTIVE_STATUSES:
+        return True
+    if booking.status == 'pending' and booking.driver is not None:
+        return True
+    return False
+
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_messages(request, booking_id):
@@ -18,15 +38,20 @@ def get_messages(request, booking_id):
     if request.user not in [booking.rider, booking.driver]:
         return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
 
-    allowed_statuses = ['accepted', 'on_the_way', 'started']
-    if booking.status not in allowed_statuses:
+    if not _chat_can_read(booking):
         return Response({'error': 'Chat not available for this booking status'}, status=status.HTTP_403_FORBIDDEN)
 
     # Determine the current trip scope: all active bookings with the same driver.
-    linked_bookings = Booking.objects.filter(
-        driver=booking.driver,
-        status__in=allowed_statuses
-    ) if booking.driver else Booking.objects.filter(id=booking.id)
+    if booking.driver:
+        linked_ids = list(
+            Booking.objects.filter(driver=booking.driver, status__in=CHAT_ACTIVE_STATUSES)
+            .values_list('id', flat=True)
+        )
+        if booking.id not in linked_ids:
+            linked_ids.append(booking.id)
+        linked_bookings = Booking.objects.filter(id__in=linked_ids)
+    else:
+        linked_bookings = Booking.objects.filter(id=booking.id)
 
     messages = (
         ChatMessage.objects.filter(booking__in=linked_bookings)
@@ -65,7 +90,7 @@ def post_message(request, booking_id):
         return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
 
     allowed_statuses = ['accepted', 'on_the_way', 'started']
-    if booking.status not in allowed_statuses:
+    if not _chat_can_post(booking):
         return Response({'error': 'Chat not available for this booking status'}, status=status.HTTP_403_FORBIDDEN)
 
     message_text = (request.data.get('message') or '').strip()

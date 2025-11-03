@@ -5,16 +5,18 @@ from django.views import View
 from django.views.decorators.http import require_POST
 from django.utils import timezone
 from .forms import (
-    DriverRegistrationForm,
     RiderRegistrationForm,
     LoginForm,
+)
+from drivers.forms import (
+    DriverRegistrationForm,
     DriverVerificationForm,
-    TricycleForm,
 )
 from .models import Driver, Rider, CustomUser, Tricycle
-from booking.forms import BookingForm, RatingForm
+from booking.forms import BookingForm
+from ratings.forms import RatingForm
 from datetime import date, timedelta
-from booking.models import Booking, DriverLocation, RatingAndFeedback
+from booking.models import Booking
 import json
 from django.http import JsonResponse
 from django.core.cache import cache
@@ -26,7 +28,6 @@ from django.conf import settings
 from decimal import Decimal
 from django.contrib.auth.views import redirect_to_login
 from django.contrib.auth import logout as auth_logout
-from django.views.decorators.csrf import csrf_protect
 from booking.utils import (
     seats_available,
     pickup_within_detour,
@@ -130,205 +131,6 @@ class LoggedIn(View):
         return render(request, self.template_name) if request.user.is_authenticated else redirect('user:landing')
 
 
-class DriverDashboard(View):
-    template_name = 'booking/driver_dashboard.html'
-
-    def get(self, request):
-        if not request.user.is_authenticated or request.user.trikego_user != 'D':
-            return redirect('user:landing')
-        profile = Driver.objects.filter(user=request.user).first()
-        available_rides = Booking.objects.filter(status='pending', driver__isnull=True)
-        active_booking = Booking.objects.filter(
-            driver=request.user,
-            status__in=['accepted', 'on_the_way', 'started'],
-        ).order_by('-booking_time').first()
-
-        context = {
-            'user': request.user,
-            'driver_profile': profile,
-            'settings': settings,
-            'available_rides': available_rides,
-            'active_booking': active_booking,
-        }
-        return render(request, self.template_name, context)
-
-
-class TricycleRegister(View):
-    template_name = 'user/tricycle_register.html'
-
-    def get(self, request):
-        pending_id = request.session.get('pending_driver_id')
-        if not pending_id:
-            messages.error(request, 'No pending driver found. Please complete the first step.')
-            return redirect('user:register')
-
-        form = TricycleForm()
-        return render(request, self.template_name, {'form': form, 'step': 2})
-
-    def post(self, request):
-        pending_id = request.session.get('pending_driver_id')
-        if not pending_id:
-            messages.error(request, 'Session expired or invalid. Please start registration again.')
-            return redirect('user:register')
-
-        form = TricycleForm(request.POST)
-        if form.is_valid():
-            trike = form.save(commit=False)
-            try:
-                driver = Driver.objects.get(id=pending_id)
-            except Driver.DoesNotExist:
-                messages.error(request, 'Driver profile missing. Please contact support.')
-                return redirect('user:register')
-
-            trike.driver = driver
-            trike.save()
-
-            driver.is_verified = False
-            driver.save(update_fields=['is_verified'])
-
-            try:
-                from django.core.mail import mail_admins
-                subject = f'New tricycle registration for driver {driver.user.username}'
-                message = (
-                    f'Driver ID: {driver.id}\nTricycle: {trike.plate_number} ({trike.color})\nPlease review and approve.'
-                )
-                mail_admins(subject, message)
-            except Exception:
-                pass
-
-            request.session.pop('pending_driver_id', None)
-            messages.success(request, 'Your application is under review.')
-            return render(request, 'user/registration_complete.html')
-        else:
-            return render(request, self.template_name, {'form': form, 'step': 2})
-
-
-@require_POST
-def accept_ride(request, booking_id):
-    if not request.user.is_authenticated or request.user.trikego_user != 'D':
-        return redirect('user:landing')
-
-    booking = get_object_or_404(Booking, id=booking_id, status='pending', driver__isnull=True)
-
-    try:
-        requested = int(getattr(booking, 'passengers', 1) or 1)
-    except Exception:
-        requested = 1
-
-    try:
-        if not seats_available(request.user, additional_seats=requested):
-            messages.error(request, "Cannot accept ride: vehicle capacity would be exceeded.")
-            return redirect('user:driver_dashboard')
-    except Exception:
-        messages.error(request, "Could not verify vehicle capacity. Please try again or contact support.")
-        return redirect('user:driver_dashboard')
-
-    rider_active = Booking.objects.filter(
-        rider=booking.rider,
-        status__in=['accepted', 'on_the_way', 'started'],
-    ).exists()
-    if rider_active:
-        messages.error(request, "Rider already has an active trip.")
-        return redirect('user:driver_dashboard')
-
-    try:
-        pickup_lat = booking.pickup_latitude
-        pickup_lon = booking.pickup_longitude
-        if pickup_lat is None or pickup_lon is None:
-            messages.error(request, "Cannot verify pickup location for detour check.")
-            return redirect('user:driver_dashboard')
-
-        allowed = pickup_within_detour(request.user, pickup_lat, pickup_lon, max_km=5.0)
-        if not allowed:
-            messages.error(request, "Pickup is too far from your current route to accept this booking.")
-            return redirect('user:driver_dashboard')
-    except Exception:
-        messages.warning(request, "Could not compute detour check; please ensure location sharing is enabled.")
-        return redirect('user:driver_dashboard')
-
-    booking.driver = request.user
-    booking.status = 'accepted'
-    booking.start_time = timezone.now()
-
-    Driver.objects.filter(user=request.user).update(status='In_trip')
-    Rider.objects.filter(user=booking.rider).update(status='In_trip')
-
-    try:
-        driver_location = DriverLocation.objects.get(driver=request.user)
-        routing_service = RoutingService()
-
-        start_coords = (float(driver_location.longitude), float(driver_location.latitude))
-        pickup_coords = (float(booking.pickup_longitude), float(booking.pickup_latitude))
-
-        route_info = routing_service.calculate_route(start_coords, pickup_coords)
-
-        if route_info:
-            routing_service.save_route_snapshot(booking, route_info)
-
-            booking.estimated_distance = Decimal(str(route_info['distance']))
-            booking.estimated_duration = route_info['duration'] // 60
-            booking.estimated_arrival = timezone.now() + timedelta(seconds=route_info['duration'])
-    except DriverLocation.DoesNotExist:
-        messages.warning(request, "Please enable location sharing to see route information.")
-    except Exception as e:
-        messages.warning(request, f"Could not calculate route: {str(e)}")
-
-    booking.save()
-    ensure_booking_stops(booking)
-    messages.success(request, f"You have accepted the ride from {booking.pickup_address} to {booking.destination_address}.")
-    try:
-        if compute_and_cache_route:
-            compute_and_cache_route.delay(booking.id)
-    except Exception:
-        pass
-    return redirect('user:driver_dashboard')
-
-
-class DriverActiveBookings(View):
-    template_name = 'booking/driver_active_books.html'
-
-    def get(self, request):
-        if not request.user.is_authenticated or request.user.trikego_user != 'D':
-            return redirect('user:landing')
-
-        active_bookings = Booking.objects.filter(
-            driver=request.user,
-            status__in=['accepted', 'on_the_way', 'started'],
-        ).order_by('-booking_time')
-
-        pending_payment_bookings = Booking.objects.filter(
-            driver=request.user,
-            status='completed',
-            payment_verified=False,
-        ).order_by('-booking_time')
-
-        bookings = list(active_bookings) + list(pending_payment_bookings)
-
-        return render(request, self.template_name, {'active_bookings': bookings})
-
-
-@require_POST
-def cancel_accepted_booking(request, booking_id):
-    if not request.user.is_authenticated or request.user.trikego_user != 'D':
-        return redirect('user:landing')
-
-    booking = get_object_or_404(Booking, id=booking_id, driver=request.user)
-
-    if booking.status in ['accepted', 'on_the_way', 'started']:
-        booking.status = 'pending'
-        booking.driver = None
-        booking.start_time = None
-        booking.save()
-        Driver.objects.filter(user=request.user).update(status='Online')
-        Rider.objects.filter(user=booking.rider).update(status='Available')
-
-        messages.success(request, "You have cancelled your acceptance. The booking is now available again.")
-    else:
-        messages.error(request, "You cannot cancel this booking anymore.")
-
-    return redirect('user:driver_active_books')
-
-
 @require_POST
 def cancel_booking(request, booking_id):
     if not request.user.is_authenticated or request.user.trikego_user != 'R':
@@ -376,26 +178,6 @@ def cancel_booking(request, booking_id):
         messages.error(request, 'This booking cannot be cancelled at this stage.')
 
     return redirect('user:rider_dashboard')
-
-
-@require_POST
-def complete_booking(request, booking_id):
-    if not request.user.is_authenticated or request.user.trikego_user != 'D':
-        return redirect('user:landing')
-
-    booking = get_object_or_404(Booking, id=booking_id, driver=request.user)
-
-    if booking.status in ['accepted', 'on_the_way', 'started']:
-        booking.status = 'completed'
-        booking.end_time = timezone.now()
-        booking.save()
-        Driver.objects.filter(user=request.user).update(status='Online')
-        Rider.objects.filter(user=booking.rider).update(status='Available')
-        messages.success(request, "Booking marked as completed!")
-    else:
-        messages.error(request, "Cannot complete this booking.")
-
-    return redirect('user:driver_active_books')
 
 
 class RiderDashboard(View):
@@ -603,52 +385,6 @@ class AdminDashboard(View):
                     messages.error(request, f"{field}: {error}")
 
         return redirect('user:admin_dashboard')
-
-
-@csrf_exempt
-@login_required
-@require_POST
-def update_driver_location(request):
-    if request.user.trikego_user != 'D':
-        return JsonResponse({'status': 'error', 'message': 'Only drivers can update location.'}, status=403)
-
-    try:
-        data = json.loads(request.body)
-        lat, lon = data.get('lat'), data.get('lon')
-        if lat is None or lon is None:
-            return JsonResponse({'status': 'error', 'message': 'Missing lat/lon.'}, status=400)
-        Driver.objects.filter(user=request.user).update(current_latitude=lat, current_longitude=lon)
-        try:
-            active_bookings = Booking.objects.filter(
-                driver=request.user,
-                status__in=['accepted', 'on_the_way', 'started'],
-            ).values('id', 'status', 'driver_id')
-            for entry in active_bookings:
-                bid = entry.get('id')
-                try:
-                    cache.delete(f'route_info_{bid}')
-                    cache.delete(f"route_info_{bid}_{entry.get('status')}_{entry.get('driver_id') or 'none'}")
-                except Exception:
-                    pass
-        except Exception:
-            pass
-        return JsonResponse({'status': 'success'})
-    except Exception as e:
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
-
-
-@login_required
-def get_driver_location(request, booking_id):
-    booking = get_object_or_404(Booking, id=booking_id)
-    if request.user != booking.rider:
-        return JsonResponse({'status': 'error', 'message': 'Permission denied.'}, status=403)
-    if not booking.driver:
-        return JsonResponse({'status': 'error', 'message': 'No driver assigned yet.'}, status=404)
-    try:
-        driver_profile = Driver.objects.get(user=booking.driver)
-        return JsonResponse({'status': 'success', 'lat': driver_profile.current_latitude, 'lon': driver_profile.current_longitude})
-    except Driver.DoesNotExist:
-        return JsonResponse({'status': 'error', 'message': 'Driver profile not found.'}, status=404)
 
 
 @csrf_exempt
@@ -908,31 +644,6 @@ def get_route_info(request, booking_id):
         pass
 
     return JsonResponse(response_data)
-
-
-@login_required
-def get_driver_active_booking(request):
-    if request.user.trikego_user != 'D':
-        return JsonResponse({'status': 'error', 'message': 'Only drivers can access this endpoint.'}, status=403)
-
-    active_booking = Booking.objects.filter(
-        driver=request.user,
-        status__in=['accepted', 'on_the_way', 'started'],
-    ).order_by('-booking_time').first()
-
-    if active_booking:
-        return JsonResponse({
-            'status': 'success',
-            'booking_id': active_booking.id,
-            'booking_status': active_booking.status,
-        })
-    else:
-        return JsonResponse({
-            'status': 'success',
-            'booking_id': None,
-        })
-
-
 @login_required
 def get_rider_trip_history(request):
     if request.user.trikego_user != 'R':
@@ -957,94 +668,3 @@ def get_rider_trip_history(request):
         })
 
     return JsonResponse({'status': 'success', 'trips': trips})
-
-
-@login_required
-def get_driver_trip_history(request):
-    if request.user.trikego_user != 'D':
-        return JsonResponse({'status': 'error', 'message': 'Driver only'}, status=403)
-
-    bookings = Booking.objects.filter(
-        driver=request.user
-    ).select_related('rider').order_by('-booking_time')[:50]
-
-    trips = []
-    for booking in bookings:
-        trips.append({
-            'id': booking.id,
-            'pickup': booking.pickup_address,
-            'destination': booking.destination_address,
-            'fare': float(booking.fare) if booking.fare else 0,
-            'status': booking.status,
-            'date': booking.booking_time.strftime('%b %d, %Y %I:%M %p'),
-            'paymentVerified': booking.payment_verified,
-            'riderName': booking.rider.get_full_name() if booking.rider else 'Unknown',
-            'distanceKm': float(booking.estimated_distance) if booking.estimated_distance is not None else None,
-        })
-
-    return JsonResponse({'status': 'success', 'trips': trips})
-
-
-@login_required
-def rate_booking(request, booking_id):
-    if request.user.trikego_user != 'R':
-        return redirect('user:landing')
-
-    booking = get_object_or_404(Booking, id=booking_id, rider=request.user)
-
-    if booking.status != 'completed':
-        messages.error(request, "This trip is not yet complete or eligible for rating.")
-        return redirect('user:rider_dashboard')
-
-    if hasattr(booking, 'rating'):
-        messages.info(request, "You have already rated this trip.")
-        return redirect('user:rider_dashboard')
-
-    if request.method == 'POST':
-        form = RatingForm(request.POST)
-        if form.is_valid():
-            rating = form.save(commit=False)
-            rating.booking = booking
-            rating.rater = request.user
-            rating.rated_user = booking.driver
-            rating.save()
-
-            Rider.objects.filter(user=booking.rider).update(status='Available')
-
-            messages.success(request, "Thank you! Your rating has been saved.")
-            return redirect('user:rider_dashboard')
-    else:
-        form = RatingForm()
-
-    context = {
-        'booking': booking,
-        'driver': booking.driver,
-        'form': form,
-    }
-    return render(request, 'booking/rate_booking.html', context)
-
-
-@login_required
-@require_POST
-def submit_rating_ajax(request, booking_id):
-    if request.user.trikego_user != 'R':
-        return JsonResponse({'status': 'error', 'message': 'Permission denied.'}, status=403)
-
-    booking = get_object_or_404(Booking, id=booking_id, rider=request.user, status='completed')
-
-    if hasattr(booking, 'rating'):
-        return JsonResponse({'status': 'info', 'message': 'Already rated.'}, status=200)
-
-    form = RatingForm(request.POST)
-    if form.is_valid():
-        rating = form.save(commit=False)
-        rating.booking = booking
-        rating.rater = request.user
-        rating.rated_user = booking.driver
-        rating.save()
-
-        Rider.objects.filter(user=booking.rider).update(status='Available')
-
-        return JsonResponse({'status': 'success', 'message': 'Thank you! Rating saved.'})
-
-    return JsonResponse({'status': 'error', 'errors': form.errors.as_json()}, status=400)
