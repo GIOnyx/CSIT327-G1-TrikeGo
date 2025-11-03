@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rider Dashboard - TrikeGo</title>
-    <link rel="stylesheet" href="{% static 'user/css/rider_dashboard.css' %}?v=5" />
+    <link rel="stylesheet" href="{% static 'user/css/rider_dashboard.css' %}?v=6" />
     {# Wallet/driver panel styles include - required for trip history card styles used by the rider and driver dashboards #}
     <link rel="stylesheet" href="{% static 'wallet/css/driver_wallet_panel.css' %}?v=1" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
@@ -93,6 +93,13 @@
             </div>
         </div>
     </div>
+
+    <button id="rider-sos-button" class="sos-button" type="button" aria-label="Emergency SOS">
+        <span class="sos-button__progress" aria-hidden="true"></span>
+        <span class="sos-button__label" aria-hidden="true">SOS</span>
+        <span class="sos-button__hint">HOLD FOR 3 SECONDS TO CALL</span>
+    </button>
+    <span id="rider-sos-live-region" class="visually-hidden" aria-live="polite"></span>
 
     {# Render Django messages so booking validation errors are visible to the rider #}
     {% if messages %}
@@ -250,6 +257,7 @@
                 <!-- Extra info: ETA, pickup and destination shown in the card -->
                 <div class="driver-info-extra">
                     <div class="info-eta"><strong>ETA:</strong> <span id="card-eta">--</span></div>
+                    <div class="info-distance"><strong>Distance:</strong> <span id="card-distance">--</span></div>
                     <div class="info-pickup"><strong>Pickup:</strong> <span id="card-pickup">{{ booking.pickup_address }}</span></div>
                     <div class="info-destination"><strong>Destination:</strong> <span id="card-dest">{{ booking.destination_address }}</span></div>
                 </div>
@@ -281,6 +289,10 @@
                     <div><strong>Destination:</strong> <span id="preview-dest">{{ booking.destination_address }}</span></div>
                 </div>
                 <div class="driver-fare">Estimated Fare: <span id="preview-fare">{% if booking.fare %}₱{{ booking.fare }}{% else %}--{% endif %}</span></div>
+                <div class="driver-info-extra">
+                    <div class="info-eta"><strong>ETA:</strong> <span id="preview-eta">--</span></div>
+                    <div class="info-distance"><strong>Distance:</strong> <span id="preview-distance">--</span></div>
+                </div>
             </div>
             <div class="driver-actions">
                 <form method="POST" id="preview-cancel-form" action="{% url 'user:cancel_booking' booking.id %}">
@@ -315,7 +327,7 @@
 
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
     <script src="{% static 'booking/js/rider_dashboard_config.js' %}"></script>
-    <script src="{% static 'booking/js/rider_dashboard.js' %}?v=6"></script>
+    <script src="{% static 'booking/js/rider_dashboard.js' %}?v=7"></script>
     <script src="{% static 'booking/js/trip_history.js' %}"></script>
     <script src="{% static 'booking/js/rider_dashboard_pin.js' %}"></script>
     <script src="{% static 'booking/js/rider_dashboard_rating.js' %}"></script>
@@ -326,7 +338,7 @@
             <h3 class="text-center">Rate Your Driver! ⭐️</h3>
             <p class="text-center text-muted">Trip to: {{ unrated_booking.destination_address }}</p>
 
-            <form id="rating-form" method="post" action="{% url 'user:submit_rating_ajax' unrated_booking.id %}">
+            <form id="rating-form" method="post" action="{% url 'ratings:submit_rating_ajax' unrated_booking.id %}">
                 {% csrf_token %}
                 
                 <div class="form-group text-center my-3">

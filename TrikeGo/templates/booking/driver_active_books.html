@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="{% static 'booking/css/payment_pin.css' %}">
 </head>
 <body data-has-active-bookings="{% if active_bookings %}true{% else %}false{% endif %}"
-      data-update-location-url="{% url 'user:update_driver_location' %}">
+    data-update-location-url="{% url 'drivers:update_driver_location' %}">
     <!-- NEW HTML for the location permission overlay -->
     <div id="location-permission-overlay" class="location-permission-overlay">
         <div class="location-permission-content">
@@ -24,7 +24,7 @@
 
     <div class="header">
         <h1>Active Bookings</h1>
-        <a href="{% url 'user:driver_dashboard' %}" class="back-btn">← Back to Dashboard</a>
+    <a href="{% url 'drivers:driver_dashboard' %}" class="back-btn">← Back to Dashboard</a>
     </div>
 
     <div class="container">
@@ -90,7 +90,7 @@
                         </p>
                         {% elif booking.status != 'completed' %}
                         <!-- For bookings that are still in progress -->
-                        <form method="POST" action="{% url 'user:cancel_accepted_booking' booking.id %}">
+                        <form method="POST" action="{% url 'drivers:cancel_accepted_booking' booking.id %}">
                             {% csrf_token %}
                             <button type="submit" class="btn btn-danger">Cancel Booking</button>
                         </form>

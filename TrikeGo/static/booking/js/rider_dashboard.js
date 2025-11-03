@@ -12,6 +12,215 @@
         });
     }
 
+    function triggerEmergencyCall() {
+        const telUri = 'tel:911';
+        const skypeUri = 'skype:911?call';
+        const userAgent = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent : '';
+        const isMobileDevice = /Mobi|Android|iPhone|iPad|iPod/i.test(userAgent);
+
+        const attemptSkypeFallback = () => {
+            try {
+                window.location.href = skypeUri;
+            } catch (err) {
+                try {
+                    window.open(skypeUri, '_blank');
+                } catch (popupErr) {
+                    alert('Please contact emergency services at 911 using your phone or Skype.');
+                }
+            }
+        };
+
+        if (isMobileDevice) {
+            window.location.href = telUri;
+        } else {
+            let telAttempted = false;
+            try {
+                const telLink = document.createElement('a');
+                telLink.href = telUri;
+                telLink.style.display = 'none';
+                document.body.appendChild(telLink);
+                telLink.click();
+                document.body.removeChild(telLink);
+                telAttempted = true;
+            } catch (err) {
+                telAttempted = false;
+            }
+
+            if (!telAttempted) {
+                attemptSkypeFallback();
+            } else {
+                setTimeout(() => {
+                    if (!document.hidden) {
+                        attemptSkypeFallback();
+                    }
+                }, 1200);
+            }
+        }
+
+        if (navigator && typeof navigator.vibrate === 'function') {
+            try {
+                navigator.vibrate([180, 70, 180]);
+            } catch (vibeErr) { /* optional */ }
+        }
+    }
+
+    function initEmergencySOSButton() {
+        const button = document.getElementById('rider-sos-button');
+        if (!button) return;
+
+        const progressEl = button.querySelector('.sos-button__progress');
+        const hintEl = button.querySelector('.sos-button__hint');
+        const liveRegion = document.getElementById('rider-sos-live-region');
+        const HOLD_DURATION_MS = 3000;
+
+        let holdTimeoutId = null;
+        let rafId = null;
+        let holdStart = 0;
+        let completed = false;
+
+        const updateProgress = () => {
+            if (!holdStart) return;
+            const elapsed = performance.now() - holdStart;
+            const ratio = Math.min(1, elapsed / HOLD_DURATION_MS);
+            if (progressEl) {
+                progressEl.style.setProperty('--sos-progress', `${(ratio * 360).toFixed(1)}deg`);
+            }
+            if (!completed) {
+                rafId = requestAnimationFrame(updateProgress);
+            }
+        };
+
+        const clearTimers = () => {
+            if (holdTimeoutId) {
+                clearTimeout(holdTimeoutId);
+                holdTimeoutId = null;
+            }
+            if (rafId) {
+                cancelAnimationFrame(rafId);
+                rafId = null;
+            }
+        };
+
+        const resetVisuals = () => {
+            button.classList.remove('is-holding');
+            button.classList.remove('is-complete');
+            if (progressEl) {
+                progressEl.style.setProperty('--sos-progress', '0deg');
+            }
+            if (hintEl) {
+                hintEl.classList.remove('is-visible');
+            }
+        };
+
+        const cancelHold = () => {
+            if (completed) {
+                return;
+            }
+            clearTimers();
+            if (holdStart && liveRegion) {
+                liveRegion.textContent = 'Emergency call cancelled.';
+                setTimeout(() => {
+                    if (liveRegion.textContent === 'Emergency call cancelled.') {
+                        liveRegion.textContent = '';
+                    }
+                }, 1500);
+            }
+            holdStart = 0;
+            completed = false;
+            resetVisuals();
+        };
+
+        const startHold = (event) => {
+            if (event) {
+                event.preventDefault();
+            }
+            if (completed || holdTimeoutId) {
+                return;
+            }
+            holdStart = performance.now();
+            if (progressEl) {
+                progressEl.style.setProperty('--sos-progress', '0deg');
+            }
+            button.classList.add('is-holding');
+            if (hintEl) {
+                hintEl.classList.add('is-visible');
+            }
+            if (liveRegion) {
+                liveRegion.textContent = 'Hold for three seconds to contact emergency services.';
+            }
+            rafId = requestAnimationFrame(updateProgress);
+            holdTimeoutId = window.setTimeout(() => {
+                completed = true;
+                clearTimers();
+                button.classList.remove('is-holding');
+                button.classList.add('is-complete');
+                if (progressEl) {
+                    progressEl.style.setProperty('--sos-progress', '360deg');
+                }
+                if (liveRegion) {
+                    liveRegion.textContent = 'Emergency call starting.';
+                }
+                triggerEmergencyCall();
+                setTimeout(() => {
+                    resetVisuals();
+                    completed = false;
+                    holdStart = 0;
+                    if (liveRegion) {
+                        liveRegion.textContent = '';
+                    }
+                }, 1600);
+            }, HOLD_DURATION_MS);
+        };
+
+        button.addEventListener('pointerdown', startHold);
+        button.addEventListener('pointerup', () => {
+            if (!completed) {
+                cancelHold();
+            }
+        });
+        button.addEventListener('pointerleave', () => {
+            if (!completed) {
+                cancelHold();
+            }
+        });
+        button.addEventListener('pointercancel', () => {
+            if (!completed) {
+                cancelHold();
+            }
+        });
+
+        button.addEventListener('keydown', (event) => {
+            if (event.code === 'Space' || event.code === 'Enter') {
+                if (event.repeat) {
+                    return;
+                }
+                startHold(event);
+            }
+        });
+        button.addEventListener('keyup', (event) => {
+            if (event.code === 'Space' || event.code === 'Enter') {
+                if (!completed) {
+                    cancelHold();
+                }
+            }
+        });
+
+        button.addEventListener('contextmenu', (event) => {
+            event.preventDefault();
+        });
+
+        window.addEventListener('blur', () => {
+            if (!completed) {
+                cancelHold();
+            }
+        });
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden && !completed) {
+                cancelHold();
+            }
+        });
+    }
+
     // ORSAutocomplete class (same behavior as inline version)
     class ORSAutocomplete {
         constructor(inputId, resultsId, latFieldId, lonFieldId, onSelectCallback) {
@@ -151,6 +360,7 @@
 
     // Initialize map and autocomplete on DOMContentLoaded
     document.addEventListener('DOMContentLoaded', () => {
+        initEmergencySOSButton();
         const openTripHistoryLink = document.getElementById('open-trip-history-link');
         if (openTripHistoryLink) {
             openTripHistoryLink.addEventListener('click', (event) => {
@@ -416,6 +626,12 @@
                     const stopsList = Array.isArray(stopsSource) && stopsSource.length ? stopsSource : (Array.isArray(info.stops) ? info.stops : []);
                     const hasStops = stopsList.length > 0;
                     const hasSharedItinerary = Boolean(itineraryPayload && hasStops);
+                    const bookingIdNum = Number(bookingId);
+                    const bookingStatusLower = (info.booking_status || '').toLowerCase();
+                    const riderOnBoard = bookingStatusLower === 'started' || bookingStatusLower === 'completed';
+                    const bookingSummaries = Array.isArray(itineraryPayload?.bookingSummaries) ? itineraryPayload.bookingSummaries : [];
+                    const itinerarySummary = bookingSummaries.find((summary) => Number(summary.bookingId) === bookingIdNum) || null;
+                    const routePayload = info.route_payload || null;
 
                     // Update fare display in active and preview cards
                     let appliedFareText = '--';
@@ -653,59 +869,149 @@
                         }
                     } catch(e) {}
 
-                    // Update ETA and distance UI
+                    // Update ETA and distance UI focusing on rider trip (pickup → destination)
                     try {
-                        const etaLabel = document.getElementById('eta-label'); const etaValue = document.getElementById('eta-value'); const distanceValue = document.getElementById('distance-value');
-                        let etaMin = null, distKm = null;
+                        const etaLabel = document.getElementById('eta-label');
+                        const etaValue = document.getElementById('eta-value');
+                        const distanceValue = document.getElementById('distance-value');
+
+                        let driverLegDistanceKm = null;
+                        let driverLegDurationSec = null;
                         if (dtData && dtData.features?.[0]?.properties?.segments?.[0]) {
-                            const seg = dtData.features[0].properties.segments[0]; etaMin = Math.ceil(seg.duration/60); distKm = (seg.distance/1000).toFixed(2); etaLabel.textContent = 'Time to Pick-up:';
-                        } else if (rdData && rdData.features?.[0]?.properties?.segments?.[0]) {
-                            const seg = rdData.features[0].properties.segments[0]; etaMin = Math.ceil(seg.duration/60); distKm = (seg.distance/1000).toFixed(2); etaLabel.textContent = 'Time to Destination:';
+                            const seg = dtData.features[0].properties.segments[0];
+                            driverLegDistanceKm = Number(seg.distance) / 1000;
+                            driverLegDurationSec = Number(seg.duration);
                         }
-                        if (etaMin == null) {
-                            const fallbackEta = Number(info.estimated_duration_min);
-                            if (Number.isFinite(fallbackEta)) {
-                                etaMin = Math.max(0, Math.round(fallbackEta));
+                        if (!Number.isFinite(driverLegDistanceKm)) {
+                            const fallbackDriverDistance = Number(info.driver_to_pickup_km);
+                            if (Number.isFinite(fallbackDriverDistance)) {
+                                driverLegDistanceKm = fallbackDriverDistance;
                             }
                         }
-                        if (distKm == null) {
-                            const fallbackDist = Number(info.pickup_to_destination_km ?? info.estimated_distance_km);
-                            if (Number.isFinite(fallbackDist)) {
-                                distKm = fallbackDist.toFixed(2);
+
+                        let tripDistanceKm = null;
+                        let tripDurationMinutes = null;
+                        let tripDurationSecSource = null;
+
+                        if (rdData && rdData.features?.[0]?.properties?.segments?.[0]) {
+                            const seg = rdData.features[0].properties.segments[0];
+                            const rawDistKm = Number(seg.distance) / 1000;
+                            const rawDurationSec = Number(seg.duration);
+                            if (Number.isFinite(rawDistKm)) {
+                                tripDistanceKm = rawDistKm;
+                            }
+                            if (Number.isFinite(rawDurationSec)) {
+                                tripDurationSecSource = rawDurationSec;
+                                tripDurationMinutes = Math.max(0, Math.round(rawDurationSec / 60));
                             }
                         }
-                        if (etaMin != null) {
-                            etaValue.textContent = `${etaMin} min`;
-                            if (etaLabel && (!etaLabel.textContent || !etaLabel.textContent.trim())) {
-                                etaLabel.textContent = 'Estimated Travel Time:';
+
+                        if (!Number.isFinite(tripDistanceKm) && itinerarySummary) {
+                            const summaryDist = Number(itinerarySummary.remainingDistanceKm);
+                            if (Number.isFinite(summaryDist)) {
+                                let adjusted = summaryDist;
+                                if (!riderOnBoard && Number.isFinite(driverLegDistanceKm)) {
+                                    adjusted = Math.max(0, adjusted - driverLegDistanceKm);
+                                }
+                                tripDistanceKm = adjusted;
                             }
                         }
-                        if (distKm != null) {
-                            distanceValue.textContent = `${distKm} km`;
-                        }
-                        // Also populate the driver-info-card summary fields if present
-                        try {
-                            const cardEta = document.getElementById('card-eta');
-                            const cardPickup = document.getElementById('card-pickup');
-                            const cardDest = document.getElementById('card-dest');
-                            if (cardEta) cardEta.textContent = (etaMin != null) ? `${etaMin} min` : '--';
-                            // Prefer server-provided address; fallback to booking list DOM text; last resort: coords
-                            let pickupAddr = info.pickup_address || null;
-                            let destAddr = info.destination_address || null;
-                            if ((!pickupAddr || !destAddr) && bookingId) {
-                                const bookingEl = document.querySelector(`.booking-item[data-booking-id="${bookingId}"]`);
-                                if (bookingEl) {
-                                    const txt = (bookingEl.textContent || '').trim();
-                                    // booking item text has format: "<pickup> → <destination>"
-                                    const parts = txt.split('→');
-                                    if (!pickupAddr && parts[0]) pickupAddr = parts[0].trim();
-                                    if (!destAddr && parts[1]) destAddr = parts[1].trim();
+
+                        if (tripDurationMinutes == null && itinerarySummary) {
+                            let summaryDurationSec = Number(itinerarySummary.remainingDurationSec);
+                            if (Number.isFinite(summaryDurationSec)) {
+                                if (!riderOnBoard && Number.isFinite(driverLegDurationSec)) {
+                                    summaryDurationSec = Math.max(0, summaryDurationSec - driverLegDurationSec);
+                                }
+                                tripDurationMinutes = Math.max(0, Math.round(summaryDurationSec / 60));
+                            } else {
+                                const summaryDurationMinutes = Number(itinerarySummary.remainingDurationMinutes);
+                                if (Number.isFinite(summaryDurationMinutes)) {
+                                    const adjustedMinutes = !riderOnBoard && Number.isFinite(driverLegDurationSec)
+                                        ? Math.max(0, summaryDurationMinutes - Math.round(driverLegDurationSec / 60))
+                                        : summaryDurationMinutes;
+                                    tripDurationMinutes = Math.max(0, Math.round(adjustedMinutes));
                                 }
                             }
-                            if (cardPickup) cardPickup.textContent = pickupAddr || (pLat && pLon ? `${pLat.toFixed(5)}, ${pLon.toFixed(5)}` : '--');
-                            if (cardDest) cardDest.textContent = destAddr || (xLat && xLon ? `${xLat.toFixed(5)}, ${xLon.toFixed(5)}` : '--');
-                        } catch(e) { /* non-critical */ }
-                    } catch(e) {}
+                        }
+
+                        if (!Number.isFinite(tripDistanceKm)) {
+                            const fallbackDist = Number(
+                                (routePayload && routePayload.distance) ??
+                                info.pickup_to_destination_km ??
+                                info.estimated_distance_km
+                            );
+                            if (Number.isFinite(fallbackDist)) {
+                                tripDistanceKm = fallbackDist;
+                            }
+                        }
+
+                        if (tripDurationMinutes == null) {
+                            if (Number.isFinite(tripDurationSecSource)) {
+                                tripDurationMinutes = Math.max(0, Math.round(tripDurationSecSource / 60));
+                            } else {
+                                const fallbackEtaMinutes = Number(info.estimated_duration_min);
+                                if (Number.isFinite(fallbackEtaMinutes)) {
+                                    tripDurationMinutes = Math.max(0, Math.round(fallbackEtaMinutes));
+                                } else if (itinerarySummary) {
+                                    const summaryDuration = Number(itinerarySummary.remainingDurationSec);
+                                    if (Number.isFinite(summaryDuration)) {
+                                        const safeDuration = Math.max(0, summaryDuration);
+                                        tripDurationMinutes = Math.max(0, Math.round(safeDuration / 60));
+                                    } else {
+                                        const summaryMinutes = Number(itinerarySummary.remainingDurationMinutes);
+                                        if (Number.isFinite(summaryMinutes)) {
+                                            tripDurationMinutes = Math.max(0, Math.round(Math.max(0, summaryMinutes)));
+                                        }
+                                    }
+                                } else if (routePayload && Number.isFinite(Number(routePayload.duration))) {
+                                    const routeDurationSec = Number(routePayload.duration);
+                                    tripDurationMinutes = Math.max(0, Math.round(routeDurationSec / 60));
+                                }
+                            }
+                        }
+
+                        const hasTripDistance = Number.isFinite(tripDistanceKm);
+                        const hasTripDuration = Number.isFinite(tripDurationMinutes);
+                        const formattedDistance = hasTripDistance ? `${tripDistanceKm.toFixed(2)} km` : '--';
+                        const formattedEta = hasTripDuration ? `${tripDurationMinutes} min` : '--';
+
+                        if (etaLabel) {
+                            etaLabel.textContent = 'Trip ETA:';
+                        }
+                        if (etaValue) {
+                            etaValue.textContent = formattedEta;
+                        }
+                        if (distanceValue) {
+                            distanceValue.textContent = formattedDistance;
+                        }
+
+                        const cardEta = document.getElementById('card-eta');
+                        const cardDistance = document.getElementById('card-distance');
+                        const cardPickup = document.getElementById('card-pickup');
+                        const cardDest = document.getElementById('card-dest');
+                        if (cardEta) cardEta.textContent = formattedEta;
+                        if (cardDistance) cardDistance.textContent = formattedDistance;
+
+                        let pickupAddr = info.pickup_address || null;
+                        let destAddr = info.destination_address || null;
+                        if ((!pickupAddr || !destAddr) && bookingId) {
+                            const bookingEl = document.querySelector(`.booking-item[data-booking-id="${bookingId}"]`);
+                            if (bookingEl) {
+                                const txt = (bookingEl.textContent || '').trim();
+                                const parts = txt.split('→');
+                                if (!pickupAddr && parts[0]) pickupAddr = parts[0].trim();
+                                if (!destAddr && parts[1]) destAddr = parts[1].trim();
+                            }
+                        }
+                        if (cardPickup) cardPickup.textContent = pickupAddr || (pLat && pLon ? `${pLat.toFixed(5)}, ${pLon.toFixed(5)}` : '--');
+                        if (cardDest) cardDest.textContent = destAddr || (xLat && xLon ? `${xLat.toFixed(5)}, ${xLon.toFixed(5)}` : '--');
+
+                        const previewEta = document.getElementById('preview-eta');
+                        const previewDistance = document.getElementById('preview-distance');
+                        if (previewEta) previewEta.textContent = formattedEta;
+                        if (previewDistance) previewDistance.textContent = formattedDistance;
+                    } catch(e) { /* non-critical */ }
 
                     // Update driver info card visibility and contents
                     try {

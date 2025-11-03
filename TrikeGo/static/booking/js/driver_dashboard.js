@@ -33,6 +33,37 @@
             return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[s];
         });
     }
+    
+        function formatKilometers(km) {
+            if (!Number.isFinite(km) || km <= 0) {
+                return null;
+            }
+            if (km >= 100) {
+                return `${km.toFixed(0)} km`;
+            }
+            if (km >= 10) {
+                return `${km.toFixed(1)} km`;
+            }
+            return `${km.toFixed(2)} km`;
+        }
+    
+        function formatEtaMinutes(minutes) {
+            if (!Number.isFinite(minutes)) {
+                return null;
+            }
+            const rounded = Math.max(0, Math.round(minutes));
+            return `ETA ~${rounded} min`;
+        }
+    
+        function secondsToMinutes(seconds) {
+            if (!Number.isFinite(seconds) || seconds < 0) {
+                return null;
+            }
+            if (seconds === 0) {
+                return 0;
+            }
+            return Math.ceil(seconds / 60);
+        }
 
     // ---- Multi-stop itinerary state management ----
     let itineraryData = null;
@@ -49,6 +80,7 @@
     let mapInstance = null;
     let routeLoaderDepth = 0;
     let itineraryHasLoaded = false;
+    let lastRouteLoaderHiddenAt = performance.now();
 
     function updateRouteLoaderVisibility() {
         const loaderEl = document.getElementById('driver-route-loader');
@@ -64,15 +96,26 @@
         }
     }
 
-    function showRouteLoader() {
-        routeLoaderDepth += 1;
-        updateRouteLoaderVisibility();
+    function showRouteLoader(force = false) {
+        if (!force && itineraryHasLoaded) {
+            return;
+        }
+        const now = performance.now();
+        const sinceHide = now - lastRouteLoaderHiddenAt;
+        const allowImmediate = force || (!itineraryHasLoaded && routeLoaderDepth === 0);
+        if (allowImmediate || routeLoaderDepth > 0 || sinceHide > 300) {
+            routeLoaderDepth += 1;
+            updateRouteLoaderVisibility();
+        }
     }
 
     function hideRouteLoader() {
         if (routeLoaderDepth > 0) {
             routeLoaderDepth -= 1;
             updateRouteLoaderVisibility();
+        }
+        if (routeLoaderDepth === 0) {
+            lastRouteLoaderHiddenAt = performance.now();
         }
     }
 
@@ -121,6 +164,7 @@
             summaryStatusText: document.getElementById('summary-status-text'),
             summaryActionType: document.getElementById('summary-action-type'),
             summaryAddress: document.getElementById('summary-address'),
+            summaryMeta: document.getElementById('summary-meta'),
             summaryActionBtn: document.getElementById('summary-action-btn'),
             summaryStopNum: document.getElementById('summary-stop-num'),
             summaryStopTotal: document.getElementById('summary-stop-total'),
@@ -288,11 +332,18 @@
             const statusText = booking.status ? booking.status.replace(/_/g, ' ').toUpperCase() : '';
             const fareText = booking.fareDisplay || (Number.isFinite(booking.fare) ? `₱${Number(booking.fare).toFixed(2)}` : '--');
             const bookingId = booking.bookingId || '';
+            const etaLabel = formatEtaMinutes(Number(booking.remainingDurationMinutes));
+            const distanceLabel = formatKilometers(Number(booking.remainingDistanceKm));
+            const extraMetaParts = [];
+            if (distanceLabel) extraMetaParts.push(escapeHtml(distanceLabel));
+            if (etaLabel) extraMetaParts.push(escapeHtml(etaLabel));
+            const extraMetaHtml = extraMetaParts.length ? `<div class="meta meta-secondary">${extraMetaParts.join(' • ')}</div>` : '';
 
             li.innerHTML = `
                 <div style="flex:1;">
                     <strong>Booking #${escapeHtml(String(bookingId))}</strong>
                     <div class="meta">${escapeHtml(riderName)} • ${escapeHtml(seatsLabel)}${statusText ? ` • ${escapeHtml(statusText)}` : ''}</div>
+                    ${extraMetaHtml}
                 </div>
                 <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
                     <div class="fare">${escapeHtml(fareText)}</div>
@@ -699,6 +750,7 @@
             }
             if (itineraryDom.summaryActionType) itineraryDom.summaryActionType.textContent = '--';
             if (itineraryDom.summaryAddress) itineraryDom.summaryAddress.textContent = 'Awaiting assignments.';
+            if (itineraryDom.summaryMeta) itineraryDom.summaryMeta.textContent = '';
             if (itineraryDom.fullBookingCount) itineraryDom.fullBookingCount.textContent = '0';
             if (itineraryDom.fullCapacity) itineraryDom.fullCapacity.textContent = '0 / 0';
             if (itineraryDom.fullEarnings) itineraryDom.fullEarnings.textContent = '0.00';
@@ -711,6 +763,7 @@
             renderStopList([]);
             renderBookingSummaries([]);
             clearItineraryMapLayers();
+            hideRouteLoader();
             return;
         }
 
@@ -719,6 +772,7 @@
             itineraryDom.summaryStatusText.textContent = 'NO ITINERARY';
             itineraryDom.summaryActionType.textContent = '--';
             itineraryDom.summaryAddress.textContent = 'Awaiting assignments.';
+            if (itineraryDom.summaryMeta) itineraryDom.summaryMeta.textContent = '';
             itineraryDom.summaryActionBtn.disabled = true;
             itineraryDom.summaryActionBtn.textContent = 'Start';
             itineraryDom.summaryActionBtn.removeAttribute('data-stop-id');
@@ -734,6 +788,7 @@
             renderStopList([]);
             renderBookingSummaries([]);
             clearItineraryMapLayers();
+            hideRouteLoader();
             return;
         }
 
@@ -749,6 +804,17 @@
         itineraryDom.summaryActionBtn.disabled = false;
         itineraryDom.summaryActionBtn.textContent = getStopActionLabel(currentStop);
         itineraryDom.summaryActionBtn.setAttribute('data-stop-id', currentStop.stopId);
+
+        if (itineraryDom.summaryMeta) {
+            const remainingSeconds = Number(itineraryData.remainingDurationSec);
+            const etaMinutes = secondsToMinutes(remainingSeconds);
+            const etaLabel = etaMinutes !== null ? formatEtaMinutes(etaMinutes) : null;
+            const distanceLabel = formatKilometers(Number(itineraryData.remainingDistanceKm));
+            const parts = [];
+            if (etaLabel) parts.push(etaLabel);
+            if (distanceLabel) parts.push(`${distanceLabel} remaining`);
+            itineraryDom.summaryMeta.textContent = parts.length ? parts.join(' • ') : '';
+        }
 
         if (itineraryDom.summaryStopNum) itineraryDom.summaryStopNum.textContent = String(currentStopIndex + 1);
         if (itineraryDom.summaryStopTotal) itineraryDom.summaryStopTotal.textContent = String(stops.length);
@@ -801,6 +867,215 @@
                 hideRouteLoader();
             }
         }
+    }
+
+    function triggerEmergencyCall() {
+        const telUri = 'tel:911';
+        const skypeUri = 'skype:911?call';
+        const userAgent = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent : '';
+        const isMobileDevice = /Mobi|Android|iPhone|iPad|iPod/i.test(userAgent);
+
+        const attemptSkypeFallback = () => {
+            try {
+                window.location.href = skypeUri;
+            } catch (err) {
+                try {
+                    window.open(skypeUri, '_blank');
+                } catch (popupErr) {
+                    alert('Please contact emergency services at 911 using your phone or Skype.');
+                }
+            }
+        };
+
+        if (isMobileDevice) {
+            window.location.href = telUri;
+        } else {
+            let telAttempted = false;
+            try {
+                const telLink = document.createElement('a');
+                telLink.href = telUri;
+                telLink.style.display = 'none';
+                document.body.appendChild(telLink);
+                telLink.click();
+                document.body.removeChild(telLink);
+                telAttempted = true;
+            } catch (err) {
+                telAttempted = false;
+            }
+
+            if (!telAttempted) {
+                attemptSkypeFallback();
+            } else {
+                setTimeout(() => {
+                    if (!document.hidden) {
+                        attemptSkypeFallback();
+                    }
+                }, 1200);
+            }
+        }
+
+        if (navigator && typeof navigator.vibrate === 'function') {
+            try {
+                navigator.vibrate([180, 70, 180]);
+            } catch (vibeErr) { /* optional */ }
+        }
+    }
+
+    function initEmergencySOSButton() {
+        const button = document.getElementById('driver-sos-button');
+        if (!button) return;
+
+        const progressEl = button.querySelector('.sos-button__progress');
+        const hintEl = button.querySelector('.sos-button__hint');
+        const liveRegion = document.getElementById('driver-sos-live-region');
+        const HOLD_DURATION_MS = 3000;
+
+        let holdTimeoutId = null;
+        let rafId = null;
+        let holdStart = 0;
+        let completed = false;
+
+        const updateProgress = () => {
+            if (!holdStart) return;
+            const elapsed = performance.now() - holdStart;
+            const ratio = Math.min(1, elapsed / HOLD_DURATION_MS);
+            if (progressEl) {
+                progressEl.style.setProperty('--sos-progress', `${(ratio * 360).toFixed(1)}deg`);
+            }
+            if (!completed) {
+                rafId = requestAnimationFrame(updateProgress);
+            }
+        };
+
+        const clearTimers = () => {
+            if (holdTimeoutId) {
+                clearTimeout(holdTimeoutId);
+                holdTimeoutId = null;
+            }
+            if (rafId) {
+                cancelAnimationFrame(rafId);
+                rafId = null;
+            }
+        };
+
+        const resetVisuals = () => {
+            button.classList.remove('is-holding');
+            button.classList.remove('is-complete');
+            if (progressEl) {
+                progressEl.style.setProperty('--sos-progress', '0deg');
+            }
+            if (hintEl) {
+                hintEl.classList.remove('is-visible');
+            }
+        };
+
+        const cancelHold = () => {
+            if (completed) {
+                return;
+            }
+            clearTimers();
+            if (holdStart && liveRegion) {
+                liveRegion.textContent = 'Emergency call cancelled.';
+                setTimeout(() => {
+                    if (liveRegion.textContent === 'Emergency call cancelled.') {
+                        liveRegion.textContent = '';
+                    }
+                }, 1500);
+            }
+            holdStart = 0;
+            completed = false;
+            resetVisuals();
+        };
+
+        const startHold = (event) => {
+            if (event) {
+                event.preventDefault();
+            }
+            if (completed || holdTimeoutId) {
+                return;
+            }
+            holdStart = performance.now();
+            if (progressEl) {
+                progressEl.style.setProperty('--sos-progress', '0deg');
+            }
+            button.classList.add('is-holding');
+            if (hintEl) {
+                hintEl.classList.add('is-visible');
+            }
+            if (liveRegion) {
+                liveRegion.textContent = 'Hold for three seconds to contact emergency services.';
+            }
+            rafId = requestAnimationFrame(updateProgress);
+            holdTimeoutId = window.setTimeout(() => {
+                completed = true;
+                clearTimers();
+                button.classList.remove('is-holding');
+                button.classList.add('is-complete');
+                if (progressEl) {
+                    progressEl.style.setProperty('--sos-progress', '360deg');
+                }
+                if (liveRegion) {
+                    liveRegion.textContent = 'Emergency call starting.';
+                }
+                triggerEmergencyCall();
+                setTimeout(() => {
+                    resetVisuals();
+                    completed = false;
+                    holdStart = 0;
+                    if (liveRegion) {
+                        liveRegion.textContent = '';
+                    }
+                }, 1600);
+            }, HOLD_DURATION_MS);
+        };
+
+        button.addEventListener('pointerdown', startHold);
+        button.addEventListener('pointerup', () => {
+            if (!completed) {
+                cancelHold();
+            }
+        });
+        button.addEventListener('pointerleave', () => {
+            if (!completed) {
+                cancelHold();
+            }
+        });
+        button.addEventListener('pointercancel', () => {
+            if (!completed) {
+                cancelHold();
+            }
+        });
+
+        button.addEventListener('keydown', (event) => {
+            if (event.code === 'Space' || event.code === 'Enter') {
+                if (event.repeat) {
+                    return;
+                }
+                startHold(event);
+            }
+        });
+        button.addEventListener('keyup', (event) => {
+            if (event.code === 'Space' || event.code === 'Enter') {
+                if (!completed) {
+                    cancelHold();
+                }
+            }
+        });
+
+        button.addEventListener('contextmenu', (event) => {
+            event.preventDefault();
+        });
+
+        window.addEventListener('blur', () => {
+            if (!completed) {
+                cancelHold();
+            }
+        });
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden && !completed) {
+                cancelHold();
+            }
+        });
     }
 
     async function completeItineraryStop(stopId) {
@@ -1057,6 +1332,7 @@
             if (!ORS_API_KEY || ORS_API_KEY.length < 10) {
                 console.warn('OpenRouteService API key appears missing or short; client-side route preview may fail. Set OPENROUTESERVICE_API_KEY in settings and render it into DRIVER_DASH_CONFIG.');
             }
+            initEmergencySOSButton();
             function reviewBooking(bookingId) {
                 console.log('reviewBooking called for', bookingId);
                 if (!bookingId) return;
@@ -1064,7 +1340,7 @@
                 let loaderShown = false;
                 const ensureLoader = () => {
                     if (!loaderShown) {
-                        showRouteLoader();
+                        showRouteLoader(true);
                         loaderShown = true;
                     }
                 };
@@ -1203,19 +1479,65 @@
                         if (submitBtn) submitBtn.disabled = true;
                         // CSRF token: prefer global config then fallback to cookie
                         const csrf = (cfg && cfg.csrfToken) ? cfg.csrfToken : (function(){ let name='csrftoken'; let v=null; if (document.cookie && document.cookie!=='') { const cookies=document.cookie.split(';'); for(let i=0;i<cookies.length;i++){ const c=cookies[i].trim(); if (c.substring(0,name.length+1)===(name+'=')){ v=decodeURIComponent(c.substring(name.length+1)); break; } } } return v; })();
-                        const resp = await fetch(form.action, { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRFToken': csrf }, body: new URLSearchParams(new FormData(form)) });
-                        if (!resp.ok) {
-                            // On failure, re-enable button and show a basic alert
+                        const resp = await fetch(form.action, {
+                            method: 'POST',
+                            credentials: 'same-origin',
+                            headers: {
+                                'X-CSRFToken': csrf,
+                                'Accept': 'application/json'
+                            },
+                            body: new URLSearchParams(new FormData(form))
+                        });
+                        let payload = null;
+                        try {
+                            const raw = await resp.text();
+                            payload = raw ? JSON.parse(raw) : null;
+                        } catch (parseErr) {
+                            payload = null;
+                        }
+                        if (!resp.ok || !payload || payload.status !== 'success') {
                             if (submitBtn) submitBtn.disabled = false;
-                            const txt = await resp.text();
-                            alert('Accept failed: ' + (txt || resp.statusText));
+                            const errMsg = payload && payload.message ? payload.message : (resp.statusText || 'Unknown error');
+                            alert('Accept failed: ' + errMsg);
                             return;
                         }
-                        // On success, server redirects to driver dashboard; just reload to refresh UI
-                        // But we also attempt to start active booking display quickly if booking id available
-                        try { const data = await resp.clone().text(); } catch(e){}
-                        // small delay to allow server-side to settle then reload
-                        setTimeout(() => { try { window.location.reload(); } catch(e){ location.reload(); } }, 300);
+
+                        const rideCard = form.closest('.driver-ride-card');
+                        if (rideCard) {
+                            rideCard.classList.add('driver-ride-card--accepted');
+                            const notice = document.createElement('p');
+                            notice.className = 'driver-ride-card__meta-text driver-ride-card__meta-text--success';
+                            notice.textContent = 'Ride accepted! Updating itinerary…';
+                            rideCard.appendChild(notice);
+                            setTimeout(() => {
+                                rideCard.remove();
+                            }, 1200);
+                        }
+
+                        document.dispatchEvent(new CustomEvent('driver:rideAccepted', { detail: payload.booking }));
+
+                        try {
+                            if (typeof fetchItineraryData === 'function') {
+                                await fetchItineraryData();
+                            }
+                        } catch (err) {
+                            console.warn('fetchItineraryData after accept failed', err);
+                        }
+
+                        try {
+                            if (typeof window.closeDriverRidesPanel === 'function') {
+                                window.closeDriverRidesPanel();
+                            } else {
+                                const panel = document.getElementById('driver-rides-panel');
+                                if (panel) panel.setAttribute('aria-hidden', 'true');
+                                const sidebar = document.querySelector('.sidebar');
+                                if (sidebar) sidebar.setAttribute('aria-expanded', 'false');
+                            }
+                        } catch (panelErr) {
+                            console.warn('Unable to close rides panel after accept', panelErr);
+                        }
+
+                        if (submitBtn) submitBtn.disabled = false;
                     } catch (err) {
                         console.warn('Accept request failed', err);
                         try { const submitBtn = form.querySelector('button[type="submit"]'); if (submitBtn) submitBtn.disabled = false; } catch(e){}
@@ -1236,13 +1558,35 @@
                     function getCookie(name){ let cookieValue = null; if (document.cookie && document.cookie !== '') { const cookies = document.cookie.split(';'); for (let i=0;i<cookies.length;i++){ const cookie = cookies[i].trim(); if (cookie.substring(0, name.length+1) === (name + '=')) { cookieValue = decodeURIComponent(cookie.substring(name.length+1)); break; } } } return cookieValue; }
                     const csrf = getCookie('csrftoken');
                     cb.disabled = true;
-                    fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRFToken': csrf } }).then(res => {
-                        if (res.ok) {
-                            // reload to refresh UI
-                            window.location.reload();
+                    fetch(url, {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: {
+                            'X-CSRFToken': csrf,
+                            'Accept': 'application/json'
+                        }
+                    }).then(async (res) => {
+                        let payload = null;
+                        try {
+                            const raw = await res.text();
+                            payload = raw ? JSON.parse(raw) : null;
+                        } catch (parseErr) {
+                            payload = null;
+                        }
+
+                        if (res.ok && payload && payload.status === 'success') {
+                            document.dispatchEvent(new CustomEvent('driver:rideCancelled', { detail: payload.booking }));
+                            if (cb.closest('.driver-ride-card')) {
+                                cb.closest('.driver-ride-card').remove();
+                            }
+                            cb.disabled = false;
+                            if (typeof fetchItineraryData === 'function') {
+                                fetchItineraryData();
+                            }
                         } else {
                             cb.disabled = false;
-                            res.text().then(t => { alert('Cancel failed: ' + (t || res.statusText)); });
+                            const errMsg = (payload && payload.message) ? payload.message : (res.statusText || 'Unable to cancel booking');
+                            alert('Cancel failed: ' + errMsg);
                         }
                     }).catch(err => { cb.disabled = false; alert('Network error when cancelling'); console.warn(err); });
                 } catch(err) { console.warn('cancel handler', err); }
@@ -1460,10 +1804,17 @@
                             </div>
                         `;
                         
-                        // Auto-close after 3 seconds or navigate
+                        // Auto-close after 3 seconds and refresh data without full reload
                         setTimeout(() => {
                             modal.style.display = 'none';
-                            window.location.reload(); // Refresh to update itinerary
+                            try {
+                                if (typeof fetchItineraryData === 'function') {
+                                    fetchItineraryData();
+                                }
+                                document.dispatchEvent(new CustomEvent('driver:paymentVerified', { detail: { bookingId: currentBookingId } }));
+                            } catch (refreshErr) {
+                                console.warn('Failed to refresh after payment verification', refreshErr);
+                            }
                         }, 3000);
                     }
                 } catch (error) {

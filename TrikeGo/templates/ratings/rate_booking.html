@@ -1,0 +1,45 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rate Booking {{ booking.id }} - TrikeGo</title>
+    <link rel="stylesheet" href="{% static 'booking/css/rider_dashboard.css' %}">
+</head>
+<body class="rating-page">
+    <main class="rating-container">
+        <section class="rating-card">
+            <h1>Rate Your Trip</h1>
+            <p class="trip-meta">Booking #{{ booking.id }} &mdash; {{ booking.destination_address|default:'Destination pending' }}</p>
+            <div class="driver-meta">
+                <strong>Driver:</strong>
+                {% if driver %}
+                    {{ driver.get_full_name|default:driver.username }}
+                {% else %}
+                    Unassigned
+                {% endif %}
+            </div>
+
+            <form method="post" action="">
+                {% csrf_token %}
+                <div class="form-row">
+                    {{ form.rating_value.label_tag }}
+                    <div class="rating-stars">{{ form.rating_value }}</div>
+                    {% if form.rating_value.errors %}
+                        <div class="error">{{ form.rating_value.errors }}</div>
+                    {% endif %}
+                </div>
+                <div class="form-row">
+                    {{ form.feedback_text.label_tag }}
+                    {{ form.feedback_text }}
+                    {% if form.feedback_text.errors %}
+                        <div class="error">{{ form.feedback_text.errors }}</div>
+                    {% endif %}
+                </div>
+                <button type="submit" class="btn btn-primary">Submit Rating</button>
+            </form>
+        </section>
+    </main>
+</body>
+</html>
