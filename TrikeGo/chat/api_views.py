@@ -7,6 +7,13 @@ from django.shortcuts import get_object_or_404
 from .models import ChatMessage
 from booking.models import Booking
 
+# Import notification dispatcher
+try:
+    from notifications.services import dispatch_notification, NotificationMessage
+except ImportError:
+    dispatch_notification = None
+    NotificationMessage = None
+
 
 CHAT_ACTIVE_STATUSES = {'accepted', 'on_the_way', 'started'}
 CHAT_READ_STATUSES = CHAT_ACTIVE_STATUSES | {'pending', 'completed'}
@@ -102,6 +109,26 @@ def post_message(request, booking_id):
         booking=booking,
         sender=request.user
     )
+
+    # Send push notification to the other participant
+    try:
+        if dispatch_notification and NotificationMessage:
+            recipients = set()
+            if booking.rider and booking.rider.id != request.user.id:
+                recipients.add(booking.rider.id)
+            if booking.driver and booking.driver.id != request.user.id:
+                recipients.add(booking.driver.id)
+            
+            if recipients:
+                sender_name = request.user.get_full_name() or request.user.username
+                notification_msg = NotificationMessage(
+                    title=f'💬 {sender_name}',
+                    body=message_text if len(message_text) < 240 else message_text[:236] + '...',
+                    data={'booking_id': booking.id, 'type': 'chat_message', 'chat_id': msg.id},
+                )
+                dispatch_notification(list(recipients), notification_msg, topics=['rider', 'driver'])
+    except Exception:
+        pass  # Don't fail message creation if notification fails
 
     sender_display = msg.sender.get_full_name() or msg.sender.username
     sender_role = 'Driver' if booking.driver and msg.sender_id == booking.driver.id else 'Passenger'

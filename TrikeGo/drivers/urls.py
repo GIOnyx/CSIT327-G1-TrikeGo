@@ -13,6 +13,7 @@ urlpatterns = [
     path('booking/<int:booking_id>/complete/', views.complete_booking, name='complete_booking'),
     path('api/active-booking/', views.get_driver_active_booking, name='get_driver_active_booking'),
     path('api/trip-history/', views.get_driver_trip_history, name='driver_trip_history'),
+    path('api/available-rides/', views.available_rides_api, name='available_rides_api'),
     path('api/location/update/', views.update_driver_location, name='update_driver_location'),
     path('api/booking/<int:booking_id>/location/', views.get_driver_location, name='get_driver_location'),
 ]

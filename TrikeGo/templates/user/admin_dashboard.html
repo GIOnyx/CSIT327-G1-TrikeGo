@@ -130,5 +130,21 @@
       </table>
     </section>
   </main>
+  {# Push registration bootstrap for admins #}
+  <script src="{% static 'notifications/registerPush.js' %}"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      try {
+        if (window.registerForPush) {
+          registerForPush('{{ request.user.trikego_user }}');
+        }
+      } catch (e) {
+        console.warn('Push init error', e);
+      }
+    });
+  </script>
+
+  <!-- Push unsubscribe control -->
+  <button id="push-unsubscribe-btn" class="btn btn-sm btn-outline-danger">Unsubscribe from notifications</button>
 </body>
 </html>

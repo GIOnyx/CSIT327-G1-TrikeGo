@@ -14,6 +14,8 @@
         userId: Number.isNaN(parsedUserId) ? null : parsedUserId,
         csrfToken: dataset.csrfToken || '',
         itineraryEndpoint: dataset.itineraryEndpoint || '',
-        completeStopEndpoint: dataset.completeStopEndpoint || ''
+        completeStopEndpoint: dataset.completeStopEndpoint || '',
+        availableRidesEndpoint: dataset.availableRidesEndpoint || '',
+        acceptRideUrlTemplate: dataset.acceptUrlTemplate || '',
     };
 })();

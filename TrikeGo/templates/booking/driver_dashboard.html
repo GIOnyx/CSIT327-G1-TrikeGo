@@ -16,6 +16,8 @@
     data-csrf-token="{{ csrf_token }}"
     data-itinerary-endpoint="{% url 'booking:driver_itinerary' %}"
     data-complete-stop-endpoint="{% url 'booking:complete_itinerary_stop' %}"
+    data-available-rides-endpoint="{% url 'drivers:available_rides_api' %}"
+    data-accept-url-template="{% url 'drivers:accept_ride' 0 %}"
 >
     {# Compact driver dashboard: map fills main area; compact icon rail on the left; booking overlay pinned over map #}
 
@@ -286,6 +288,23 @@
     <script src="{% static 'wallet/js/driver_wallet.js' %}?v=2"></script>
     <script src="{% static 'booking/js/driver_rides_panel.js' %}?v=1"></script>
     <script src="{% static 'booking/js/trip_history.js' %}"></script>
+
+    {# --- Push registration bootstrap --- #}
+    <script src="{% static 'notifications/registerPush.js' %}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            try {
+                if (window.registerForPush) {
+                    window.registerForPush('{{ request.user.trikego_user }}');
+                }
+            } catch (e) {
+                console.warn('Push init error', e);
+            }
+        });
+    </script>
+
+    <!-- Push unsubscribe control -->
+    <button id="push-unsubscribe-btn" class="btn btn-sm btn-outline-danger">Unsubscribe from notifications</button>
 
 </body>
 </html>

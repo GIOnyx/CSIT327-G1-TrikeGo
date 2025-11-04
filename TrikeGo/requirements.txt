@@ -12,3 +12,4 @@ whitenoise==6.8.2
 dj_database_url
 django-redis>=5.2.0
 celery>=5.3.0
+pywebpush>=1.14.0

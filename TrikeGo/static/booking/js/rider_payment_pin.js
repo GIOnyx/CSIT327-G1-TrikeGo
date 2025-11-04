@@ -8,6 +8,10 @@ class RiderPaymentPIN {
         this.bookingId = bookingId;
         this.pollInterval = null;
         
+        // Register instance for SW message dispatch
+        window.__riderPaymentPINInstances = window.__riderPaymentPINInstances || {};
+        window.__riderPaymentPINInstances[this.bookingId] = this;
+
         this.init();
     }
     
@@ -38,7 +42,14 @@ class RiderPaymentPIN {
     }
     
     startPolling() {
-        // Check if driver generated PIN
+        // Prefer push updates when service worker controls the page
+        if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+            // We'll rely on push messages to notify us; do an initial one-off check
+            this.checkPINAvailable();
+            return;
+        }
+
+        // Fallback to polling when no service worker
         this.pollInterval = setInterval(() => this.checkPINAvailable(), 2000);
         // Also check immediately
         this.checkPINAvailable();
@@ -157,3 +168,25 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 });
+
+// Global SW message listener to dispatch PIN and verification events
+if (navigator.serviceWorker && navigator.serviceWorker.addEventListener) {
+    try {
+        navigator.serviceWorker.addEventListener('message', function (evt) {
+            try {
+                const payload = evt.data || {};
+                const data = (payload && payload.data) ? payload.data : payload;
+                const type = data && data.type;
+                const bookingId = data && data.booking_id;
+                if (!bookingId) return;
+                const inst = window.__riderPaymentPINInstances && window.__riderPaymentPINInstances[bookingId];
+                if (!inst) return;
+                if (type === 'payment_verified') {
+                    inst.onPaymentVerified && inst.onPaymentVerified();
+                } else if (type === 'payment_pin_generated') {
+                    inst.showPINEntry && inst.showPINEntry(data.attempts_remaining);
+                }
+            } catch (e) { /* ignore */ }
+        });
+    } catch (e) { /* ignore */ }
+}
