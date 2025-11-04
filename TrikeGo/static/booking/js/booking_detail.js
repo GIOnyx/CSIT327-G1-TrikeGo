@@ -88,7 +88,28 @@
 
     // Initial load & polling (reduced frequency to lower server load)
     loadMessages();
-    setInterval(loadMessages, 6000);
+    // If a service worker is controlling the page, rely on push messages. Otherwise fallback to polling.
+    if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+        console.log('Using push messages for chat updates');
+    } else {
+        setInterval(loadMessages, 6000);
+    }
+
+    // Listen for push messages forwarded by the service worker and refresh chat when appropriate
+    if (navigator.serviceWorker && navigator.serviceWorker.addEventListener) {
+        try {
+            navigator.serviceWorker.addEventListener('message', function (evt) {
+                try {
+                    const payload = evt.data || {};
+                    const data = (payload && payload.data) ? payload.data : payload;
+                    if (!data) return;
+                    if (data.type === 'chat_message' && String(data.booking_id) === String(bookingId)) {
+                        loadMessages();
+                    }
+                } catch (e) { /* ignore */ }
+            });
+        } catch (e) { /* ignore */ }
+    }
 
         chatForm.addEventListener('submit', function(ev) {
             ev.preventDefault();

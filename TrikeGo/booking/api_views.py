@@ -24,6 +24,11 @@ from .utils import (
 from user.models import Driver, Rider
 
 logger = logging.getLogger(__name__)
+try:
+    from notifications.services import dispatch_notification, NotificationMessage
+except Exception:
+    dispatch_notification = None
+    NotificationMessage = None
 
 
 @api_view(['POST'])
@@ -271,6 +276,17 @@ def complete_itinerary_stop(request):
             booking.status = 'started'
             booking.start_time = booking.start_time or timezone.now()
             booking.save(update_fields=['status', 'start_time'])
+            # Notify rider that trip has started
+            try:
+                if dispatch_notification and NotificationMessage:
+                    msg = NotificationMessage(
+                        title='Trip Started',
+                        body=f"Your trip #{booking.id} has started.",
+                        data={'booking_id': booking.id, 'type': 'trip_started'},
+                    )
+                    dispatch_notification([booking.rider.id], msg, topics=['rider'])
+            except Exception:
+                pass
     else:  # dropoff
         booking.status = 'completed'
         booking.end_time = timezone.now()
@@ -316,6 +332,24 @@ def complete_itinerary_stop(request):
             payload['completedBookings'] = completed_bookings
             payload['showPaymentModal'] = True
             payload['paymentModalBookingId'] = stop.booking_id
+            # Notify rider and driver about completed trip and payment pending
+            try:
+                if dispatch_notification and NotificationMessage:
+                    rider_msg = NotificationMessage(
+                        title='Trip Completed',
+                        body=f"Your trip #{booking.id} is completed. Please verify payment.",
+                        data={'booking_id': booking.id, 'type': 'trip_completed'},
+                    )
+                    dispatch_notification([booking.rider.id], rider_msg, topics=['rider'])
+
+                    driver_msg = NotificationMessage(
+                        title='Trip Completed - Payment Pending',
+                        body=f"Trip #{booking.id} completed. Awaiting payment verification.",
+                        data={'booking_id': booking.id, 'type': 'payment_pending'},
+                    )
+                    dispatch_notification([booking.driver.id], driver_msg, topics=['driver'])
+            except Exception:
+                pass
     
     return Response(payload)
 

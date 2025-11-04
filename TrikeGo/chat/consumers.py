@@ -3,6 +3,14 @@ import json
 from channels.db import database_sync_to_async
 from .models import ChatMessage
 from django.contrib.auth import get_user_model
+from booking.models import Booking
+
+try:
+    # Importing notification dispatcher in a sync helper to avoid async import issues
+    from notifications.services import dispatch_notification, NotificationMessage
+except Exception:
+    dispatch_notification = None
+    NotificationMessage = None
 
 User = get_user_model()
 
@@ -48,6 +56,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     'timestamp': str(chat_obj.timestamp)
                 }
             )
+            # Dispatch push notifications to other participants (non-blocking)
+            try:
+                await database_sync_to_async(self._dispatch_chat_notifications)(chat_obj.id, user.id)
+            except Exception:
+                # Swallow notification errors to avoid closing connection
+                pass
         except Exception:
             # Ignore malformed messages
             return
@@ -67,3 +81,31 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return chat
         except Exception:
             return None
+
+    def _dispatch_chat_notifications(self, chat_id, sender_id):
+        try:
+            if not dispatch_notification or not NotificationMessage:
+                return
+            chat = ChatMessage.objects.select_related('booking', 'sender').get(id=chat_id)
+            booking = chat.booking
+            recipients = set()
+            if booking.rider and booking.rider.id != sender_id:
+                recipients.add(booking.rider.id)
+            if booking.driver and booking.driver.id != sender_id:
+                recipients.add(booking.driver.id)
+            if not recipients:
+                return
+            
+            sender_name = chat.sender.username if chat.sender else "Someone"
+            body = chat.message
+            title = f'💬 {sender_name}'
+            
+            msg = NotificationMessage(
+                title=title,
+                body=body if len(body) < 240 else body[:236] + '...',
+                data={'booking_id': booking.id, 'type': 'chat_message', 'chat_id': chat.id},
+            )
+            # Send to both rider and driver topics since we don't know which role each recipient has
+            dispatch_notification(list(recipients), msg, topics=['rider', 'driver'])
+        except Exception:
+            return

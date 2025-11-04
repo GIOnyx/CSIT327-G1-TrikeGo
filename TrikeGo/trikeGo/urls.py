@@ -40,6 +40,7 @@ urlpatterns = [
     path('tracking/', include('tracking.urls')),
     path('ratings/', include('ratings.urls')),
     path('drivers/', include('drivers.urls')),
+    path('notifications/', include('notifications.urls')),
 ]
 
 # Development helper: serve static files directly from the `static/` dirs when

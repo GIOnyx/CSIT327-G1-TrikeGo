@@ -5,13 +5,13 @@
 
 class DriverPaymentPIN {
     constructor(bookingId, fare) {
-        this.bookingId = bookingId;
-        this.fare = fare;
-        this.pollInterval = null;
-        this.countdownInterval = null;
-        this.expiresAt = null;
-        
-        this.init();
+    this.bookingId = bookingId;
+    this.fare = fare;
+    this.pollInterval = null;
+    this.countdownInterval = null;
+    this.expiresAt = null;
+
+    this.init();
     }
     
     init() {
@@ -100,6 +100,12 @@ class DriverPaymentPIN {
     }
     
     startPolling() {
+        // Keep for backward compatibility; prefer push-based updates
+        if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+            // Rely on push messages; perform an initial check
+            this.checkPaymentStatus();
+            return;
+        }
         if (this.pollInterval) {
             clearInterval(this.pollInterval);
         }
@@ -266,4 +272,32 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
     });
+    // Register instances globally for SW message dispatch
+    window.__driverPaymentPinInstances = window.__driverPaymentPinInstances || new Map();
+    paymentSections.forEach(section => {
+        const bookingId = section.dataset.bookingId;
+        if (bookingId && pinInstances.has(bookingId)) {
+            window.__driverPaymentPinInstances.set(String(bookingId), pinInstances.get(bookingId));
+        }
+    });
 });
+
+// Global SW listener to handle payment verified events
+if (navigator.serviceWorker && navigator.serviceWorker.addEventListener) {
+    try {
+        navigator.serviceWorker.addEventListener('message', function (evt) {
+            try {
+                const payload = evt.data || {};
+                const data = (payload && payload.data) ? payload.data : payload;
+                const type = data && data.type;
+                const bookingId = data && data.booking_id;
+                if (!bookingId || !type) return;
+                const inst = window.__driverPaymentPinInstances && window.__driverPaymentPinInstances.get(String(bookingId));
+                if (!inst) return;
+                if (type === 'payment_verified') {
+                    inst.onPaymentVerified && inst.onPaymentVerified();
+                }
+            } catch (e) { /* ignore */ }
+        });
+    } catch (e) { /* ignore */ }
+}

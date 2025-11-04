@@ -28,6 +28,13 @@ from django.conf import settings
 from decimal import Decimal
 from django.contrib.auth.views import redirect_to_login
 from django.contrib.auth import logout as auth_logout
+
+# Import notification services
+try:
+    from notifications.services import dispatch_notification, NotificationMessage
+except ImportError:
+    dispatch_notification = None
+    NotificationMessage = None
 from booking.utils import (
     seats_available,
     pickup_within_detour,
@@ -148,6 +155,7 @@ def cancel_booking(request, booking_id):
     if booking.status in ['pending', 'accepted', 'on_the_way']:
         old_status = booking.status
         old_driver_id = booking.driver_id
+        old_driver = booking.driver  # Save driver reference before clearing
 
         if booking.status == 'pending' and booking.driver is None:
             print(f"[cancel_booking] Already pending with no driver, just clearing cache")
@@ -159,6 +167,20 @@ def cancel_booking(request, booking_id):
             booking.driver = None
             booking.start_time = None
             booking.save()
+            
+            # Notify driver if booking was accepted
+            if old_driver and old_status in ['accepted', 'on_the_way']:
+                try:
+                    if dispatch_notification and NotificationMessage:
+                        msg = NotificationMessage(
+                            title='Ride Cancelled by Rider',
+                            body=f"Rider has cancelled booking #{booking.id}.",
+                            data={'booking_id': booking.id, 'type': 'rider_cancelled'},
+                        )
+                        dispatch_notification([old_driver.id], msg, topics=['driver'])
+                        print(f'📢 Sent cancellation notification to driver {old_driver.username}')
+                except Exception as e:
+                    print(f'Failed to send cancellation notification: {e}')
 
         cache_keys = [
             f'route_info_{booking_id}_{old_status}_{old_driver_id or "none"}',
@@ -336,6 +358,33 @@ class RiderDashboard(View):
             except Booking.DoesNotExist:
                 print(f'❌ ERROR: Booking {booking.id} NOT found in database after save!')
                 raise Exception(f'Booking {booking.id} was not saved to database')
+
+            # Notify all available drivers about new ride
+            try:
+                if dispatch_notification and NotificationMessage:
+                    # Get all online/available drivers
+                    available_drivers = Driver.objects.filter(
+                        status__in=['Online', 'Available'],
+                        user__is_active=True
+                    ).values_list('user_id', flat=True)
+                    
+                    if available_drivers:
+                        fare_display = f"₱{booking.fare:.2f}" if booking.fare else "TBD"
+                        msg = NotificationMessage(
+                            title='🚖 New Ride Available',
+                            body=f"New booking #{booking.id} • {booking.pickup_address[:50]} → {booking.destination_address[:50]} • Fare: {fare_display}",
+                            data={
+                                'booking_id': booking.id,
+                                'type': 'new_ride_available',
+                                'fare': str(booking.fare) if booking.fare else None,
+                                'pickup': booking.pickup_address,
+                                'destination': booking.destination_address,
+                            },
+                        )
+                        dispatch_notification(list(available_drivers), msg, topics=['driver'])
+                        print(f'📢 Sent new ride notification to {len(available_drivers)} drivers')
+            except Exception as e:
+                print(f'Failed to send new ride notifications: {e}')
 
             messages.success(request, 'Your booking has been created successfully!')
             return redirect('user:rider_dashboard')
@@ -636,6 +685,7 @@ def get_route_info(request, booking_id):
         'driver_to_pickup_km': driver_to_pickup_km,
         'stops': stops_payload,
         'itinerary': shared_itinerary,
+        'payment_verified': booking.payment_verified,
     }
 
     try:

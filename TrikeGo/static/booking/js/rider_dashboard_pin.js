@@ -19,6 +19,7 @@
 
     let currentBookingId = null;
     let pollingInterval = null;
+    let _swMessageHandler = null;
 
     function formatFare(amount) {
         const parsed = Number.parseFloat(amount);
@@ -153,13 +154,46 @@
             clearInterval(pollingInterval);
             pollingInterval = null;
         }
+        if (_swMessageHandler && navigator.serviceWorker && navigator.serviceWorker.removeEventListener) {
+            try {
+                navigator.serviceWorker.removeEventListener('message', _swMessageHandler);
+            } catch (e) { /* ignore */ }
+            _swMessageHandler = null;
+        }
     }
 
     function startPolling() {
-        clearPolling();
-        if (!currentBookingId) {
+        // If a service worker is active and controlling the page, prefer push messages
+        if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+            // Register a message handler to receive push messages forwarded by the SW
+            if (!_swMessageHandler) {
+                _swMessageHandler = function (evt) {
+                    try {
+                        const payload = evt.data || {};
+                        const data = (payload && payload.data) ? payload.data : payload;
+                        const type = data && data.type;
+                        const booking = data && data.booking_id;
+                        if (!booking || booking !== currentBookingId) return;
+                        if (type === 'payment_verified') {
+                            clearPolling();
+                            showSuccess();
+                        }
+                        if (type === 'payment_pin_generated') {
+                            // Ensure entry UI becomes available
+                            waitingSection.style.display = 'none';
+                            entrySection.style.display = 'block';
+                            setAttemptsRemaining(data.attempts_remaining || 3);
+                        }
+                    } catch (e) { /* ignore */ }
+                };
+                try { navigator.serviceWorker.addEventListener('message', _swMessageHandler); } catch (e) { /* ignore */ }
+            }
             return;
         }
+
+        // Fallback to polling when SW not available
+        clearPolling();
+        if (!currentBookingId) return;
         pollingInterval = window.setInterval(async () => {
             const status = await fetchPinStatus(currentBookingId);
             if (!status) {

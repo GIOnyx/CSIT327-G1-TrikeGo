@@ -15,13 +15,19 @@ from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 from booking.models import Booking, DriverLocation
 from booking.services import RoutingService
 from booking.utils import ensure_booking_stops, pickup_within_detour, seats_available
 from drivers.forms import TricycleForm
 from user.models import Driver, Rider
+try:
+    from notifications.services import dispatch_notification, NotificationMessage
+except Exception:
+    # Notifications are optional in some environments; degrade gracefully
+    dispatch_notification = None
+    NotificationMessage = None
 
 try:  # Celery task is optional in some environments
     from booking.tasks import compute_and_cache_route
@@ -254,6 +260,18 @@ def accept_ride(request, booking_id):
                 'payment_verified': booking.payment_verified,
             },
         })
+    # Push notification: inform the rider that a driver accepted
+    try:
+        if dispatch_notification and NotificationMessage:
+            msg = NotificationMessage(
+                title='Ride Accepted',
+                body=f"Your ride #{booking.id} was accepted by a driver. They'll arrive soon.",
+                data={'booking_id': booking.id, 'type': 'ride_accepted'},
+            )
+            dispatch_notification([booking.rider.id], msg, topics=['rider'])
+    except Exception:
+        # Do not fail the request if notification sending has issues
+        pass
     return redirect('drivers:driver_dashboard')
 
 
@@ -276,6 +294,17 @@ def cancel_accepted_booking(request, booking_id):
         Rider.objects.filter(user=booking.rider).update(status='Available')
         msg = 'You have cancelled your acceptance. The booking is now available again.'
         messages.success(request, msg)
+        # Notify rider that driver cancelled acceptance
+        try:
+            if dispatch_notification and NotificationMessage:
+                note = NotificationMessage(
+                    title='Ride Cancelled by Driver',
+                    body=f"Driver has cancelled acceptance for ride #{booking.id}. We're looking for another driver.",
+                    data={'booking_id': booking.id, 'type': 'driver_cancelled'},
+                )
+                dispatch_notification([booking.rider.id], note, topics=['rider'])
+        except Exception:
+            pass
         if _wants_json(request):
             return JsonResponse({'status': 'success', 'booking': {'id': booking.id, 'status': booking.status}})
     else:
@@ -312,6 +341,18 @@ def complete_booking(request, booking_id):
         messages.error(request, msg)
         if _wants_json(request):
             return JsonResponse({'status': 'error', 'message': msg}, status=400)
+
+    # Notify rider that trip is completed
+    try:
+        if dispatch_notification and NotificationMessage:
+            note = NotificationMessage(
+                title='Trip Completed',
+                body=f"Your trip #{booking.id} is completed. Thank you for riding with us.",
+                data={'booking_id': booking.id, 'type': 'trip_completed'},
+            )
+            dispatch_notification([booking.rider.id], note, topics=['rider'])
+    except Exception:
+        pass
 
     return redirect('drivers:driver_active_books')
 
@@ -363,6 +404,48 @@ def get_driver_trip_history(request):
         })
 
     return JsonResponse({'status': 'success', 'trips': trips})
+
+
+@login_required
+@require_GET
+def available_rides_api(request):
+    if not _ensure_driver(request):
+        return JsonResponse({'status': 'error', 'message': 'Driver only'}, status=403)
+
+    rides = []
+    pending_bookings = (
+        Booking.objects.filter(status='pending', driver__isnull=True)
+        .select_related('rider')
+        .order_by('booking_time')[:30]
+    )
+
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f'Available rides API called by {request.user.username}, found {pending_bookings.count()} pending bookings')
+
+    for booking in pending_bookings:
+        try:
+            rider_name = booking.rider.get_full_name().strip() or booking.rider.username
+        except Exception:
+            rider_name = 'Passenger'
+
+        ride_data = {
+            'id': booking.id,
+            'status': booking.status,
+            'booking_time': booking.booking_time.isoformat() if booking.booking_time else None,
+            'updated_at': booking.booking_time.isoformat() if booking.booking_time else None,
+            'pickup_address': booking.pickup_address,
+            'destination_address': booking.destination_address,
+            'passengers': booking.passengers or 1,
+            'fare': float(booking.fare) if booking.fare is not None else None,
+            'fare_display': f"₱{booking.fare:.2f}" if booking.fare is not None else None,
+            'estimated_distance_km': float(booking.estimated_distance) if booking.estimated_distance is not None else None,
+            'estimated_duration_min': booking.estimated_duration,
+            'rider_name': rider_name,
+        }
+        rides.append(ride_data)
+
+    return JsonResponse({'status': 'success', 'rides': rides})
 
 
 @csrf_exempt

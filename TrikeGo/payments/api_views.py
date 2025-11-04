@@ -18,6 +18,11 @@ from payments.utils import (
 )
 
 logger = logging.getLogger(__name__)
+try:
+    from notifications.services import dispatch_notification, NotificationMessage
+except Exception:
+    dispatch_notification = None
+    NotificationMessage = None
 
 
 @api_view(['POST'])
@@ -59,6 +64,18 @@ def generate_payment_pin_endpoint(request, booking_id):
         logger.exception('Failed to save payment PIN')
         return Response({'status': 'error', 'message': 'Failed to save PIN.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    # Notify rider that a payment PIN was generated
+    try:
+        if dispatch_notification and NotificationMessage:
+            note = NotificationMessage(
+                title='Payment PIN Generated',
+                body=f"A payment PIN has been generated for your trip #{booking.id}. Please enter it to verify payment.",
+                data={'booking_id': booking.id, 'type': 'payment_pin_generated'},
+            )
+            dispatch_notification([booking.rider.id], note, topics=['rider'])
+    except Exception:
+        pass
+
     return Response({'status': 'success', 'pin': pin, 'expires_at': expiry_time.isoformat(), 'max_attempts': booking.payment_pin_max_attempts})
 
 
@@ -94,6 +111,26 @@ def verify_payment_pin_endpoint(request, booking_id):
             booking_locked.status = 'completed'
             booking_locked.end_time = timezone.now()
             booking_locked.save(update_fields=['payment_verified', 'payment_verified_at', 'status', 'end_time'])
+            # Notify driver and rider that payment was verified
+            try:
+                if dispatch_notification and NotificationMessage:
+                    rider_msg = NotificationMessage(
+                        title='Payment Verified',
+                        body=f"Payment for trip #{booking_locked.id} has been verified. Thank you!",
+                        data={'booking_id': booking_locked.id, 'type': 'payment_verified'},
+                    )
+                    dispatch_notification([booking_locked.rider.id], rider_msg, topics=['rider'])
+
+                    if booking_locked.driver:
+                        driver_msg = NotificationMessage(
+                            title='Payment Verified',
+                            body=f"Payment for trip #{booking_locked.id} has been verified by the rider.",
+                            data={'booking_id': booking_locked.id, 'type': 'payment_verified'},
+                        )
+                        dispatch_notification([booking_locked.driver.id], driver_msg, topics=['driver'])
+            except Exception:
+                pass
+
             return Response({'status': 'success', 'message': 'Payment verified.'})
         else:
             booking_locked.payment_pin_attempts += 1

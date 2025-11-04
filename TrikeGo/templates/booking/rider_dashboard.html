@@ -313,14 +313,14 @@
     {% endif %}
 
     <!-- Chat modal for rider -->
-    <div id="chatModal" class="chat-modal" style="display:none; position:fixed; right:20px; bottom:20px; width:360px; max-width:90%; background:#fff; border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,0.2); z-index:1200;">
-        <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-bottom:1px solid #eee;">
-            <strong id="chatModalTitle">Chat</strong>
+    <div id="chatModal" class="chat-modal" style="display:none; position:fixed; left:108px; bottom:30px; width:clamp(320px, 35%, 500px); max-width:500px; min-height:400px; background:rgba(15, 23, 36, 0.96); border-radius:16px; box-shadow:0 8px 25px rgba(0, 0, 0, 0.15); z-index:1420; transition: left 0.3s ease; border:1px solid rgba(255, 255, 255, 0.08); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px); padding:0;">
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-bottom:1px solid rgba(255, 255, 255, 0.08); background:rgba(255, 255, 255, 0.05);">
+            <strong id="chatModalTitle" style="color:#f4f7ff;">Chat</strong>
             <button id="chatModalClose" aria-label="Close chat" style="background:#dc3545;color:#fff;border:none;padding:6px 8px;border-radius:6px;cursor:pointer;">✕</button>
         </div>
-        <div id="chatModalMessages" style="padding:12px; max-height:320px; overflow-y:auto; background:#f7f9fb;"></div>
-        <form id="chatModalForm" style="display:flex; gap:8px; padding:10px; border-top:1px solid #eee;">
-            <input id="chatModalInput" type="text" placeholder="Type a message" style="flex:1;padding:8px;border:1px solid #ddd;border-radius:6px;" />
+        <div id="chatModalMessages" style="padding:12px; min-height:300px; max-height:320px; overflow-y:auto; background:#ffffff; color:#1a1a1a;"></div>
+        <form id="chatModalForm" style="display:flex; gap:8px; padding:10px; border-top:1px solid rgba(255, 255, 255, 0.08);">
+            <input id="chatModalInput" type="text" placeholder="Type a message" style="flex:1;padding:8px;border:1px solid rgba(255,255,255,0.3);border-radius:6px;background:#ffffff;color:#1a1a1a;" />
             <button id="chatModalSend" type="submit" class="btn btn-primary">Send</button>
         </form>
     </div>
@@ -331,6 +331,21 @@
     <script src="{% static 'booking/js/trip_history.js' %}"></script>
     <script src="{% static 'booking/js/rider_dashboard_pin.js' %}"></script>
     <script src="{% static 'booking/js/rider_dashboard_rating.js' %}"></script>
+
+    {# Push registration bootstrap #}
+    <script src="{% static 'notifications/registerPush.js' %}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            try {
+                if (window.registerForPush) {
+                    // register push and bind unsubscribe button
+                    window.registerForPush('{{ request.user.trikego_user }}');
+                }
+            } catch (e) {
+                console.warn('Push init error', e);
+            }
+        });
+    </script>
 
     {% if unrated_booking %}
     <div id="ratingModal" class="modal" style="display: block; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4);">

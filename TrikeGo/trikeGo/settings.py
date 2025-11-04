@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'tracking',
     'ratings',
     'drivers',
+    'notifications',
 ]
 
 MIDDLEWARE = [
@@ -86,8 +87,9 @@ DATABASES = {
 # Ensure it respects Supabase/Render's SSL requirements if any
 if 'DATABASE_URL' in os.environ:
     DATABASES['default']['OPTIONS'] = {'sslmode': 'require'}
-# Keep DB connections open for a short period to reduce overhead in production
-DATABASES['default']['CONN_MAX_AGE'] = int(os.environ.get('CONN_MAX_AGE', 600))
+# Set CONN_MAX_AGE to 0 to prevent connection pool exhaustion on Supabase pooler (Session Mode)
+# Connections will be closed after each request instead of being reused
+DATABASES['default']['CONN_MAX_AGE'] = int(os.environ.get('CONN_MAX_AGE', 0))
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
@@ -97,6 +99,31 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ],
 }
+
+# Web push configuration
+WEBPUSH_VAPID_PUBLIC_KEY = os.environ.get('WEBPUSH_VAPID_PUBLIC_KEY', '')
+WEBPUSH_VAPID_PRIVATE_KEY = os.environ.get('WEBPUSH_VAPID_PRIVATE_KEY', '')
+WEBPUSH_VAPID_CLAIM_EMAIL = os.environ.get('WEBPUSH_VAPID_CLAIM_EMAIL', '')
+
+PUSH_NOTIFICATIONS_ENABLED = bool(WEBPUSH_VAPID_PUBLIC_KEY and WEBPUSH_VAPID_PRIVATE_KEY)
+
+WEBPUSH_SETTINGS = {
+    'VAPID_PUBLIC_KEY': WEBPUSH_VAPID_PUBLIC_KEY,
+    'VAPID_PRIVATE_KEY': WEBPUSH_VAPID_PRIVATE_KEY,
+    'VAPID_ADMIN_EMAIL': WEBPUSH_VAPID_CLAIM_EMAIL,
+}
+
+PUSH_NOTIFICATION_DEFAULT_ICON = os.environ.get(
+    'PUSH_NOTIFICATION_DEFAULT_ICON',
+    'https://trikego-static.s3.amazonaws.com/icons/trikego-bell.png',
+)
+
+PUSH_NOTIFICATION_SITE_NAME = os.environ.get('PUSH_NOTIFICATION_SITE_NAME', 'TrikeGo')
+
+PUSH_NOTIFICATION_DEEPLINK_BASE = os.environ.get(
+    'PUSH_NOTIFICATION_DEEPLINK_BASE',
+    os.environ.get('SITE_URL', 'https://trikego.app'),
+)
 
 # OpenRouteService API Configuration
 OPENROUTESERVICE_API_KEY = os.environ.get('OPENROUTESERVICE_API_KEY', 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImIyOThlMTFhZDk5MzRmOGVhY2NmOTAxMGQzM2ZlYWJhIiwiaCI6Im11cm11cjY0In0=')
@@ -146,6 +173,13 @@ if REDIS_URL:
 
 # Celery broker: prefer explicit env var, otherwise use Redis URL when available
 CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL') or REDIS_URL or 'redis://localhost:6379/0'
+
+# In local development we default Celery to eager mode so push notifications fire
+# immediately without a worker. In production set CELERY_TASK_ALWAYS_EAGER=false.
+CELERY_TASK_ALWAYS_EAGER = os.environ.get('CELERY_TASK_ALWAYS_EAGER', '').lower() == 'true'
+if DEBUG and 'CELERY_TASK_ALWAYS_EAGER' not in os.environ:
+    CELERY_TASK_ALWAYS_EAGER = True
+CELERY_TASK_EAGER_PROPAGATES = True
 
 AUTH_USER_MODEL = "user.CustomUser"
 LOGIN_URL = 'user:landing'

@@ -65,6 +65,150 @@
             return Math.ceil(seconds / 60);
         }
 
+        const driverRidesState = {
+            signature: null,
+            refreshing: false,
+            timerId: null,
+        };
+
+        function buildAcceptRideUrl(bookingId) {
+            const id = String(bookingId);
+            const tpl = cfg.acceptRideUrlTemplate || '';
+            if (!tpl) {
+                return `/drivers/booking/${id}/accept/`;
+            }
+            if (tpl.indexOf('/0/') !== -1) {
+                return tpl.replace('/0/', `/${id}/`);
+            }
+            if (tpl.endsWith('0')) {
+                return tpl.slice(0, -1) + id;
+            }
+            return tpl.replace('0', id);
+        }
+
+        function computeAvailableRidesSignature(rides) {
+            if (!Array.isArray(rides)) {
+                return '[]';
+            }
+            return rides.map((ride) => {
+                const updated = ride.updated_at || ride.booking_time || '';
+                return `${ride.id || ''}:${ride.status || ''}:${updated}`;
+            }).join('|');
+        }
+
+        function renderAvailableRidesList(rides) {
+            const container = document.getElementById('rides-panel-list');
+            if (!container) {
+                return;
+            }
+            if (!Array.isArray(rides) || rides.length === 0) {
+                container.innerHTML = '<p class="driver-rides-panel__empty">No rides are available right now. Check back soon.</p>';
+                return;
+            }
+
+            const fragment = document.createDocumentFragment();
+            rides.forEach((ride) => {
+                const card = document.createElement('div');
+                card.className = 'driver-ride-card';
+                card.setAttribute('data-booking-id', ride.id);
+
+                const riderName = ride.rider_name || 'Passenger';
+                const passengers = Number(ride.passengers || 1);
+                const seatsLabel = passengers === 1 ? '1 passenger' : `${passengers} passengers`;
+                const fareDisplay = ride.fare_display || (Number.isFinite(ride.fare) ? `₱${Number(ride.fare).toFixed(2)}` : 'Fare pending');
+                const pickup = ride.pickup_address || '—';
+                const destination = ride.destination_address || '—';
+
+                const distanceVal = Number(ride.estimated_distance_km ?? ride.estimated_distance ?? NaN);
+                const durationVal = Number(ride.estimated_duration_min ?? ride.estimated_duration ?? NaN);
+                const distanceLabel = Number.isFinite(distanceVal) ? `Distance: ${distanceVal.toFixed(distanceVal >= 10 ? 1 : 2)} km` : '';
+                const etaLabel = Number.isFinite(durationVal) ? `ETA: ~${Math.max(1, Math.round(durationVal))} mins` : '';
+                const metaPieces = [distanceLabel, etaLabel].filter(Boolean);
+
+                const acceptUrl = buildAcceptRideUrl(ride.id);
+                const csrfToken = cfg.csrfToken || '';
+
+                card.innerHTML = `
+                    <div class="driver-ride-card__top">
+                        <div>
+                            <span class="driver-ride-card__rider">${escapeHtml(riderName)}</span>
+                            <span class="driver-ride-card__seats">${escapeHtml(seatsLabel)}</span>
+                        </div>
+                        <div class="driver-ride-card__fare">
+                            <span class="driver-ride-card__fare-amount${fareDisplay === 'Fare pending' ? ' driver-ride-card__fare-amount--pending' : ''}">${escapeHtml(fareDisplay)}</span>
+                        </div>
+                    </div>
+                    <div class="driver-ride-card__route">
+                        <div class="driver-ride-card__route-item">
+                            <span class="driver-ride-card__label">from:</span>
+                            <span class="driver-ride-card__value">${escapeHtml(pickup)}</span>
+                        </div>
+                        <div class="driver-ride-card__route-item">
+                            <span class="driver-ride-card__label">to:</span>
+                            <span class="driver-ride-card__value">${escapeHtml(destination)}</span>
+                        </div>
+                    </div>
+                    ${metaPieces.length ? `<div class="driver-ride-card__meta">${metaPieces.map((txt) => `<span class="driver-ride-card__meta-text">${escapeHtml(txt)}</span>`).join('')}</div>` : ''}
+                    <div class="driver-ride-card__actions">
+                        <button class="btn btn-secondary review-ride-btn" data-booking-id="${escapeHtml(String(ride.id))}">Review</button>
+                        <form class="accept-ride-form" data-booking-id="${escapeHtml(String(ride.id))}" method="POST" action="${escapeHtml(acceptUrl)}">
+                            <input type="hidden" name="csrfmiddlewaretoken" value="${escapeHtml(csrfToken)}" />
+                            <button type="submit" class="btn btn-success" data-role="accept-submit">Accept</button>
+                        </form>
+                    </div>
+                `;
+                fragment.appendChild(card);
+            });
+
+            container.innerHTML = '';
+            container.appendChild(fragment);
+        }
+
+        async function refreshAvailableRidesList(immediate = false) {
+            if (!cfg.availableRidesEndpoint || driverRidesState.refreshing) {
+                if (!cfg.availableRidesEndpoint) {
+                    console.warn('Available rides endpoint not configured; skipping poll');
+                }
+                return;
+            }
+            driverRidesState.refreshing = true;
+            try {
+                const response = await fetch(cfg.availableRidesEndpoint + (immediate ? '?t=' + Date.now() : ''), { credentials: 'same-origin' });
+                if (!response.ok) {
+                    console.warn('Available rides fetch failed:', response.status, response.statusText);
+                    return;
+                }
+                const payload = await response.json();
+                if (!payload || payload.status !== 'success' || !Array.isArray(payload.rides)) {
+                    console.warn('Available rides response invalid:', payload);
+                    return;
+                }
+                const signature = computeAvailableRidesSignature(payload.rides);
+                if (signature !== driverRidesState.signature) {
+                    console.debug('Available rides updated:', payload.rides.length, 'rides');
+                    driverRidesState.signature = signature;
+                    renderAvailableRidesList(payload.rides);
+                }
+            } catch (err) {
+                console.warn('Available rides refresh failed', err);
+            } finally {
+                driverRidesState.refreshing = false;
+            }
+        }
+
+        function startAvailableRidesPolling() {
+            if (!cfg.availableRidesEndpoint) {
+                console.warn('Cannot start available rides polling: endpoint not configured');
+                return;
+            }
+            console.debug('Starting available rides polling, endpoint:', cfg.availableRidesEndpoint);
+            refreshAvailableRidesList(true);
+            if (driverRidesState.timerId) {
+                clearInterval(driverRidesState.timerId);
+            }
+            driverRidesState.timerId = setInterval(() => refreshAvailableRidesList(false), 7000);
+        }
+
     // ---- Multi-stop itinerary state management ----
     let itineraryData = null;
     let currentStopIndex = 0;
@@ -93,6 +237,96 @@
         } else {
             loaderEl.classList.add('hidden');
             loaderEl.setAttribute('aria-hidden', 'true');
+        }
+    }
+    async function handleAcceptRide(form) {
+        const submitBtn = form.querySelector('button[type="submit"]');
+        if (submitBtn) submitBtn.disabled = true;
+
+        const csrf = cfg.csrfToken || (function getCSRFTokenFromCookie() {
+            const name = 'csrftoken';
+            if (!document.cookie) return null;
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i += 1) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    return decodeURIComponent(cookie.substring(name.length + 1));
+                }
+            }
+            return null;
+        })();
+
+        try {
+            const response = await fetch(form.action, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'X-CSRFToken': csrf || '',
+                    'Accept': 'application/json'
+                },
+                body: new URLSearchParams(new FormData(form))
+            });
+
+            const raw = await response.text();
+            let payload = null;
+            if (raw) {
+                try {
+                    payload = JSON.parse(raw);
+                } catch (parseErr) {
+                    console.warn('accept payload parse failed', parseErr);
+                }
+            }
+
+            if (!response.ok || !payload || payload.status !== 'success') {
+                const errMsg = payload && payload.message ? payload.message : (response.statusText || 'Unable to accept ride');
+                alert('Accept failed: ' + errMsg);
+                if (submitBtn) submitBtn.disabled = false;
+                return;
+            }
+
+            const rideCard = form.closest('.driver-ride-card');
+            if (rideCard) {
+                rideCard.classList.add('driver-ride-card--accepted');
+                const notice = document.createElement('p');
+                notice.className = 'driver-ride-card__meta-text driver-ride-card__meta-text--success';
+                notice.textContent = 'Ride accepted! Updating itinerary…';
+                rideCard.appendChild(notice);
+                setTimeout(() => {
+                    if (rideCard.parentElement) {
+                        rideCard.remove();
+                    }
+                }, 1200);
+            }
+
+            document.dispatchEvent(new CustomEvent('driver:rideAccepted', { detail: payload.booking }));
+
+            try {
+                if (typeof fetchItineraryData === 'function') {
+                    itineraryHasLoaded = false;
+                    await fetchItineraryData({ forceLoader: true });
+                }
+            } catch (err) {
+                console.warn('Unable to refresh itinerary after accept', err);
+            }
+
+            try {
+                if (typeof window.closeDriverRidesPanel === 'function') {
+                    window.closeDriverRidesPanel();
+                } else {
+                    const panel = document.getElementById('driver-rides-panel');
+                    if (panel) panel.setAttribute('aria-hidden', 'true');
+                    const sidebar = document.querySelector('.sidebar');
+                    if (sidebar) sidebar.setAttribute('aria-expanded', 'false');
+                }
+            } catch (panelErr) {
+                console.warn('Unable to close rides panel after accept', panelErr);
+            }
+
+            if (submitBtn) submitBtn.disabled = false;
+        } catch (err) {
+            console.warn('Accept request failed', err);
+            if (submitBtn) submitBtn.disabled = false;
+            alert('Network error while accepting ride.');
         }
     }
 
@@ -839,11 +1073,34 @@
         renderItineraryMap(itineraryData);
     }
 
-    async function fetchItineraryData() {
+    let itineraryStageSignature = null;
+
+    function computeItineraryStageSignature(itinerary) {
+        if (!itinerary) {
+            return 'none';
+        }
+        const base = `${itinerary.tripId || itinerary.id || ''}:${itinerary.status || ''}`;
+        const stopsSig = Array.isArray(itinerary.stops)
+            ? itinerary.stops.map((stop) => {
+                const sid = stop.stopId || stop.stop_uid || stop.bookingId || stop.booking_id || stop.sequence || 0;
+                const stat = stop.status || '';
+                const typ = stop.type || stop.stop_type || '';
+                return `${sid}:${typ}:${stat}`;
+            }).join('|')
+            : '';
+        const bookingsSig = Array.isArray(itinerary.bookingSummaries)
+            ? itinerary.bookingSummaries.map((b) => `${b.bookingId || b.booking_id || ''}:${b.status || ''}`).join('|')
+            : '';
+        return `${base}#${stopsSig}#${bookingsSig}`;
+    }
+
+    async function fetchItineraryData(options = {}) {
         if (!cfg.itineraryEndpoint) return;
-        const showLoaderDuringFetch = !itineraryHasLoaded;
-        if (showLoaderDuringFetch) {
-            showRouteLoader();
+        const forceLoader = Boolean(options.forceLoader);
+        let loaderShown = false;
+        if (forceLoader || !itineraryHasLoaded) {
+            showRouteLoader(true);
+            loaderShown = true;
         }
         try {
             const response = await fetch(cfg.itineraryEndpoint, { credentials: 'same-origin' });
@@ -854,6 +1111,16 @@
             if (!payload || payload.status !== 'success') {
                 throw new Error('Invalid itinerary payload');
             }
+
+            const newSignature = computeItineraryStageSignature(payload.itinerary);
+            if (newSignature !== itineraryStageSignature) {
+                itineraryStageSignature = newSignature;
+                itineraryHasLoaded = false;
+                if (!loaderShown) {
+                    showRouteLoader(true);
+                    loaderShown = true;
+                }
+            }
             itineraryData = payload.itinerary || null;
             updateTrackingState();
             renderItineraryUI();
@@ -863,7 +1130,7 @@
         } catch (err) {
             console.warn('Failed to fetch itinerary', err);
         } finally {
-            if (showLoaderDuringFetch) {
+            if (loaderShown) {
                 hideRouteLoader();
             }
         }
@@ -1154,14 +1421,33 @@
     (function(){
         // create modal HTML and append to body (if not present)
         if (!document.getElementById('driverChatModal')) {
-            const modal = document.createElement('div'); modal.id = 'driverChatModal'; modal.style.display = 'none'; modal.style.position = 'fixed'; modal.style.right = '20px'; modal.style.bottom = '20px'; modal.style.width = '360px'; modal.style.maxWidth = '90%'; modal.style.background = '#fff'; modal.style.border = '1px solid #ccc'; modal.style.boxShadow = '0 6px 18px rgba(0,0,0,0.2)'; modal.style.zIndex = '1200'; modal.innerHTML = `
-                <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; border-bottom:1px solid #eee; background:#f8f9fa;">
-                    <strong id="driverChatTitle">Chat</strong>
-                    <div><button id="driverChatClose" class="btn btn-sm">✕</button></div>
+            const modal = document.createElement('div'); 
+            modal.id = 'driverChatModal'; 
+            modal.style.display = 'none'; 
+            modal.style.position = 'fixed'; 
+            modal.style.left = '108px'; // Match driver-info-card positioning
+            modal.style.bottom = '20px'; 
+            modal.style.width = '320px'; 
+            modal.style.maxWidth = '320px'; 
+            modal.style.background = 'rgba(15, 23, 36, 0.96)'; 
+            modal.style.border = '1px solid rgba(255, 255, 255, 0.08)'; 
+            modal.style.boxShadow = '0 18px 36px rgba(11, 38, 56, 0.28)'; 
+            modal.style.zIndex = '2200'; 
+            modal.style.borderRadius = '18px'; 
+            modal.style.padding = '0';
+            modal.style.backdropFilter = 'blur(3px)';
+            modal.style.webkitBackdropFilter = 'blur(3px)';
+            modal.style.color = '#f4f7ff';
+            modal.style.transition = 'left 0.3s ease';
+            modal.className = 'driver-chat-modal';
+            modal.innerHTML = `
+                <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; border-bottom:1px solid rgba(255, 255, 255, 0.08); background:rgba(255, 255, 255, 0.05);">
+                    <strong id="driverChatTitle" style="color:#f4f7ff;">Trip Chat</strong>
+                    <div><button id="driverChatClose" class="btn btn-sm" style="background:#dc3545;color:#fff;border:none;padding:4px 8px;border-radius:6px;cursor:pointer;">✕</button></div>
                 </div>
-                <div id="driverChatMessages" style="height:300px; overflow:auto; padding:12px; background:#fafafa;"><p class="muted">Loading messages...</p></div>
-                <form id="driverChatForm" style="display:flex; gap:8px; padding:8px; border-top:1px solid #eee;">
-                    <textarea id="driverChatInput" rows="2" style="flex:1; padding:8px;"></textarea>
+                <div id="driverChatMessages" style="height:300px; overflow:auto; padding:12px; background:#ffffff; color:#1a1a1a;"><p style="color:#666;">Loading messages...</p></div>
+                <form id="driverChatForm" style="display:flex; gap:8px; padding:12px; border-top:1px solid rgba(255, 255, 255, 0.08);">
+                    <textarea id="driverChatInput" rows="2" style="flex:1; padding:8px; background:#ffffff; border:1px solid rgba(255,255,255,0.3); border-radius:6px; color:#1a1a1a;" placeholder="Type a message"></textarea>
                     <button type="submit" class="btn btn-primary">Send</button>
                 </form>
             `; document.body.appendChild(modal);
@@ -1270,23 +1556,71 @@
             }
             const el = document.getElementById('driverChatModal');
             el.style.display = 'block';
+            
+            // Match the left positioning of driver-info-card based on open panels
+            if (document.body.classList.contains('history-panel-open') || 
+                document.body.classList.contains('wallet-panel-open') || 
+                document.body.classList.contains('rides-panel-open')) {
+                el.style.left = '508px';
+            } else {
+                el.style.left = '108px';
+            }
+            
+            // Hide itinerary card and show chat in its place
+            const itineraryCard = document.getElementById('itinerary-card');
+            if (itineraryCard) {
+                itineraryCard.style.display = 'none';
+            }
+            
             const titleEl = document.getElementById('driverChatTitle');
             if (titleEl) {
                 titleEl.textContent = 'Trip Chat';
             }
             loadDriverMessages();
-            _driverChatPolling = setInterval(loadDriverMessages, 6000);
+                if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+                    // Rely on push messages forwarded by the service worker
+                    console.log('Using push for driver chat updates');
+                } else {
+                    _driverChatPolling = setInterval(loadDriverMessages, 6000);
+                }
         }
 
         function closeDriverChatModal() {
             const el = document.getElementById('driverChatModal');
             el.style.display = 'none';
+            
+            // Restore itinerary card visibility
+            const itineraryCard = document.getElementById('itinerary-card');
+            if (itineraryCard) {
+                itineraryCard.style.display = 'block';
+            }
+            
             _driverChatBookingId = null;
             if (_driverChatPolling) {
                 clearInterval(_driverChatPolling);
                 _driverChatPolling = null;
             }
         }
+
+        // Listen for push messages to refresh chat when appropriate
+        try {
+            if (navigator.serviceWorker && navigator.serviceWorker.addEventListener) {
+                navigator.serviceWorker.addEventListener('message', function (evt) {
+                    try {
+                        const payload = evt.data || {};
+                        const data = (payload && payload.data) ? payload.data : payload;
+                        if (!data || data.type !== 'chat_message') return;
+                        const bid = data.booking_id;
+                        if (!bid) return;
+                        if (_driverChatBookingId && String(_driverChatBookingId) === String(bid)) {
+                            loadDriverMessages();
+                        } else {
+                            // Optionally, flash a UI indicator for new messages on other bookings
+                        }
+                    } catch (e) { /* ignore */ }
+                });
+            }
+        } catch (e) { /* ignore */ }
 
         // Attach events
         document.getElementById('driverChatClose').addEventListener('click', (e) => { e.preventDefault(); closeDriverChatModal(); });
@@ -1316,6 +1650,14 @@
             // Expose map instance for review buttons and wire review button clicks
             window.DRIVER_MAP = map;
             initItinerary(map);
+            startAvailableRidesPolling();
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden) {
+                    refreshAvailableRidesList(true);
+                }
+            });
+            document.addEventListener('driver:rideAccepted', () => refreshAvailableRidesList(true));
+            document.addEventListener('driver:rideCancelled', () => refreshAvailableRidesList(true));
             // Sidebar toggles: rides icon opens the hidden sidebar-content; open-rides button also opens it
             try {
                 const ridesIconEl = document.getElementById('rides-icon');
@@ -1462,90 +1804,24 @@
                 }
             } catch(e) { /* ignore */ }
 
-            // attach click handlers to review buttons
-            document.querySelectorAll('.review-ride-btn').forEach(btn => {
-                btn.addEventListener('click', (ev) => {
-                    ev.preventDefault(); const bid = btn.getAttribute('data-booking-id'); reviewBooking(bid);
-                });
-            });
-
-            // Intercept accept ride form submissions and perform AJAX POST to avoid accidental delegation
-            document.querySelectorAll('form.accept-ride-form').forEach(form => {
-                form.addEventListener('submit', async function(e) {
-                    e.preventDefault();
-                    try {
-                        const bid = form.getAttribute('data-booking-id');
-                        const submitBtn = form.querySelector('button[type="submit"]');
-                        if (submitBtn) submitBtn.disabled = true;
-                        // CSRF token: prefer global config then fallback to cookie
-                        const csrf = (cfg && cfg.csrfToken) ? cfg.csrfToken : (function(){ let name='csrftoken'; let v=null; if (document.cookie && document.cookie!=='') { const cookies=document.cookie.split(';'); for(let i=0;i<cookies.length;i++){ const c=cookies[i].trim(); if (c.substring(0,name.length+1)===(name+'=')){ v=decodeURIComponent(c.substring(name.length+1)); break; } } } return v; })();
-                        const resp = await fetch(form.action, {
-                            method: 'POST',
-                            credentials: 'same-origin',
-                            headers: {
-                                'X-CSRFToken': csrf,
-                                'Accept': 'application/json'
-                            },
-                            body: new URLSearchParams(new FormData(form))
-                        });
-                        let payload = null;
-                        try {
-                            const raw = await resp.text();
-                            payload = raw ? JSON.parse(raw) : null;
-                        } catch (parseErr) {
-                            payload = null;
-                        }
-                        if (!resp.ok || !payload || payload.status !== 'success') {
-                            if (submitBtn) submitBtn.disabled = false;
-                            const errMsg = payload && payload.message ? payload.message : (resp.statusText || 'Unknown error');
-                            alert('Accept failed: ' + errMsg);
-                            return;
-                        }
-
-                        const rideCard = form.closest('.driver-ride-card');
-                        if (rideCard) {
-                            rideCard.classList.add('driver-ride-card--accepted');
-                            const notice = document.createElement('p');
-                            notice.className = 'driver-ride-card__meta-text driver-ride-card__meta-text--success';
-                            notice.textContent = 'Ride accepted! Updating itinerary…';
-                            rideCard.appendChild(notice);
-                            setTimeout(() => {
-                                rideCard.remove();
-                            }, 1200);
-                        }
-
-                        document.dispatchEvent(new CustomEvent('driver:rideAccepted', { detail: payload.booking }));
-
-                        try {
-                            if (typeof fetchItineraryData === 'function') {
-                                await fetchItineraryData();
-                            }
-                        } catch (err) {
-                            console.warn('fetchItineraryData after accept failed', err);
-                        }
-
-                        try {
-                            if (typeof window.closeDriverRidesPanel === 'function') {
-                                window.closeDriverRidesPanel();
-                            } else {
-                                const panel = document.getElementById('driver-rides-panel');
-                                if (panel) panel.setAttribute('aria-hidden', 'true');
-                                const sidebar = document.querySelector('.sidebar');
-                                if (sidebar) sidebar.setAttribute('aria-expanded', 'false');
-                            }
-                        } catch (panelErr) {
-                            console.warn('Unable to close rides panel after accept', panelErr);
-                        }
-
-                        if (submitBtn) submitBtn.disabled = false;
-                    } catch (err) {
-                        console.warn('Accept request failed', err);
-                        try { const submitBtn = form.querySelector('button[type="submit"]'); if (submitBtn) submitBtn.disabled = false; } catch(e){}
-                        alert('Network error while accepting ride.');
+            // Event delegation handles review button clicks and accept submissions
+            document.addEventListener('click', function(event) {
+                const reviewBtn = event.target.closest('.review-ride-btn');
+                if (reviewBtn) {
+                    event.preventDefault();
+                    const bid = reviewBtn.getAttribute('data-booking-id');
+                    if (bid) {
+                        reviewBooking(bid);
                     }
-                });
+                }
             });
 
+            document.addEventListener('submit', function(event) {
+                const form = event.target.closest('form.accept-ride-form');
+                if (!form) return;
+                event.preventDefault();
+                handleAcceptRide(form);
+            });
             // Cancel booking handler: use fetch POST to avoid nested form issues
             document.addEventListener('click', function(e) {
                 try {
@@ -1734,6 +2010,10 @@
                     pinDisplaySection.style.display = 'block';
                     
                     console.log('✅ PIN generated successfully:', data.pin, 'for booking:', currentBookingId);
+                    
+                    // Re-enable button and reset flag on success
+                    isGenerating = false;
+                    generateBtn.disabled = false;
                     
                     // Start countdown
                     const expiresAt = new Date(data.expires_at);

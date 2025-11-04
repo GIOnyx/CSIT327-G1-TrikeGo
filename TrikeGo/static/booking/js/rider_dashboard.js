@@ -290,6 +290,7 @@
     // Chat modal helpers (rider)
     let _chatModalBookingId = null;
     let _chatModalPolling = null;
+    let _chatModalIsOpen = false; // Track if chat is currently open
     const chatModal = document.getElementById('chatModal');
     const chatModalMessages = document.getElementById('chatModalMessages');
     const chatModalForm = document.getElementById('chatModalForm');
@@ -311,18 +312,70 @@
 
     function openChatModal(bookingId) {
         _chatModalBookingId = bookingId;
+        _chatModalIsOpen = true; // Set flag
         if (!chatModal) return;
         chatModal.style.display = 'block';
+        
+        // Match the left positioning of dashboard-booking-card based on open panels
+        if (document.body.classList.contains('history-panel-open')) {
+            chatModal.style.left = '508px';
+        } else {
+            chatModal.style.left = '108px';
+        }
+        
+        // Hide ALL booking panels and show chat in their place
+        const bookingCard = document.querySelector('.dashboard-booking-card');
+        if (bookingCard) {
+            bookingCard.style.display = 'none';
+        }
+        const previewCard = document.getElementById('booking-preview-card');
+        if (previewCard) {
+            previewCard.style.display = 'none';
+        }
+        const driverInfoCard = document.getElementById('driver-info-card');
+        if (driverInfoCard) {
+            driverInfoCard.style.display = 'none';
+        }
+        
         chatModal.scrollIntoView({ behavior: 'smooth' });
         if (chatModalTitle) chatModalTitle.textContent = `Chat (Booking ${bookingId})`;
         loadModalMessages();
-    if (!_chatModalBookingId) return;
-    if (window._chatModalPolling) clearInterval(window._chatModalPolling);
-    // Poll less often for chat; consider switching to WebSockets (Channels) in production
-    window._chatModalPolling = setInterval(loadModalMessages, 6000);
+        if (!_chatModalBookingId) return;
+        if (window._chatModalPolling) clearInterval(window._chatModalPolling);
+        // Prefer push updates when SW controls the page
+        if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+            console.log('Using push for rider chat updates');
+        } else {
+            // Poll less often for chat as a fallback
+            window._chatModalPolling = setInterval(loadModalMessages, 6000);
+        }
     }
 
-    function closeChatModal() { if (!chatModal) return; chatModal.style.display = 'none'; _chatModalBookingId = null; if (window._chatModalPolling) { clearInterval(window._chatModalPolling); window._chatModalPolling = null; } }
+    function closeChatModal() { 
+        if (!chatModal) return; 
+        chatModal.style.display = 'none'; 
+        _chatModalIsOpen = false; // Clear flag
+        
+        // Restore ALL booking panels visibility
+        const bookingCard = document.querySelector('.dashboard-booking-card');
+        if (bookingCard) {
+            bookingCard.style.display = 'block';
+        }
+        const previewCard = document.getElementById('booking-preview-card');
+        if (previewCard && previewCard.getAttribute('data-was-visible') !== 'false') {
+            previewCard.style.display = 'block';
+        }
+        const driverInfoCard = document.getElementById('driver-info-card');
+        if (driverInfoCard && driverInfoCard.getAttribute('data-was-visible') !== 'false') {
+            driverInfoCard.style.display = 'block';
+        }
+        
+        _chatModalBookingId = null; 
+        if (window._chatModalPolling) { 
+            clearInterval(window._chatModalPolling); 
+            window._chatModalPolling = null; 
+        } 
+    }
 
     // ORS / routing rate-limit guard and previous-coords cache to avoid excessive routing requests
     let _orsRateLimitedUntil = 0;
@@ -354,6 +407,26 @@
         if (!res.ok) { alert('Failed to send message'); return; }
         chatModalInput.value = ''; loadModalMessages();
     });
+
+// Listen for push messages forwarded by the service worker and refresh chat when appropriate
+try {
+    if (navigator.serviceWorker && navigator.serviceWorker.addEventListener) {
+        navigator.serviceWorker.addEventListener('message', function (evt) {
+            try {
+                const payload = evt.data || {};
+                const data = (payload && payload.data) ? payload.data : payload;
+                if (!data || data.type !== 'chat_message') return;
+                const bid = data.booking_id;
+                if (!bid) return;
+                if (_chatModalBookingId && String(_chatModalBookingId) === String(bid)) {
+                    loadModalMessages();
+                } else {
+                    // Optionally show indicator for new messages for other bookings
+                }
+            } catch (e) { /* ignore */ }
+        });
+    }
+} catch (e) { /* ignore */ }
 
     // Export small helpers used by other pieces of UI
     window.openChatModal = openChatModal; window.closeChatModal = closeChatModal;
@@ -507,7 +580,24 @@
     let itineraryRouteLayer = null;
     let itineraryRouteSignature = null;
     let fallbackRouteLayer = null;
-        let initialRouteLoadDone = false;
+        // Track whether we've performed the initial route fetch for a given booking/stage.
+        // We want the loader to appear once when previewing a pending booking and once again
+        // after a driver accepts (active stage).
+        const initialRouteLoadDoneForBooking = new Set();
+
+        function markRouteStageLoaded(bookingId, stage) {
+            if (!bookingId) return;
+            initialRouteLoadDoneForBooking.add(`${bookingId}:${stage}`);
+        }
+
+        function isRouteStageLoaded(bookingId, stage) {
+            return bookingId ? initialRouteLoadDoneForBooking.has(`${bookingId}:${stage}`) : false;
+        }
+
+        function resetRouteStage(bookingId, stage) {
+            if (!bookingId) return;
+            initialRouteLoadDoneForBooking.delete(`${bookingId}:${stage}`);
+        }
         let stopMarkers = [];
         let currentTrackedBookingId = null;
 
@@ -588,19 +678,47 @@
 
             async function updateAll(bookingId) {
                 const loader = document.getElementById('route-loader');
+                const bookingKey = String(bookingId);
+                let stage = (currentTrackedBookingId && String(currentTrackedBookingId) === bookingKey) ? 'active' : 'preview';
+                let stageKey = `${bookingKey}:${stage}`;
+                let loaderShowing = false;
+                // Only show loader if this stage hasn't been loaded yet
+                if (loader && !isRouteStageLoaded(bookingKey, stage)) {
+                    loader.classList.remove('hidden');
+                    loader.setAttribute('aria-hidden', 'false');
+                    loaderShowing = true;
+                }
+                let infoRes;
+                let stageLoadedSuccessfully = false;
                 try {
-                    if (!initialRouteLoadDone && loader) { loader.classList.remove('hidden'); loader.setAttribute('aria-hidden', 'false'); }
-                    const infoRes = await fetch(`/api/booking/${bookingId}/route_info/`);
+                    infoRes = await fetch(`/api/booking/${bookingId}/route_info/`);
                     if (!infoRes.ok) {
-                        if (!initialRouteLoadDone && loader) { loader.classList.add('hidden'); loader.setAttribute('aria-hidden', 'true'); }
                         console.error('Failed to fetch route info:', infoRes.status);
                         return;
                     }
                     const info = await infoRes.json();
                     if (info.status !== 'success') {
-                        if (!initialRouteLoadDone && loader) { loader.classList.add('hidden'); loader.setAttribute('aria-hidden', 'true'); }
                         console.error('Route info error:', info.message);
                         return;
+                    }
+
+                    const infoBookingStatus = (info.booking_status || '').toLowerCase();
+                    const driverAssigned = Boolean(info.driver || info.driver_id || info.driver_name || infoBookingStatus === 'accepted' || infoBookingStatus === 'on_the_way' || infoBookingStatus === 'started');
+                    const resolvedStage = driverAssigned ? 'active' : 'preview';
+                    // Only update stage and show loader if stage changed AND new stage not loaded yet
+                    if (resolvedStage !== stage) {
+                        const oldStage = stage;
+                        stage = resolvedStage;
+                        stageKey = `${bookingKey}:${stage}`;
+                        // Show loader only if switching to a new stage that hasn't been loaded AND loader isn't already showing
+                        if (loader && !loaderShowing && !isRouteStageLoaded(bookingKey, stage)) {
+                            loader.classList.remove('hidden');
+                            loader.setAttribute('aria-hidden', 'false');
+                            loaderShowing = true;
+                            console.debug('[Rider Dashboard] Stage changed from', oldStage, 'to', stage, '— showing loader');
+                        } else {
+                            console.debug('[Rider Dashboard] Stage changed from', oldStage, 'to', stage, '— loader already shown or stage already loaded');
+                        }
                     }
 
                     const dLat = (info.driver_lat != null) ? Number(info.driver_lat) : null;
@@ -1013,6 +1131,12 @@
                         if (previewDistance) previewDistance.textContent = formattedDistance;
                     } catch(e) { /* non-critical */ }
 
+                    // Declare bookingCompleted outside try blocks so it's accessible in finally
+                    let bookingCompleted = false;
+                    try {
+                        bookingCompleted = (info.booking_status === 'completed');
+                    } catch(e) { /* ignore */ }
+
                     // Update driver info card visibility and contents
                     try {
                         const infoCard = document.getElementById('driver-info-card');
@@ -1038,19 +1162,58 @@
                                 if (fareTarget) {
                                     fareTarget.textContent = appliedFareText;
                                 }
-                                infoCard.style.display = 'block'; infoCard.setAttribute('aria-hidden','false');
-                            } else { infoCard.style.display = 'none'; infoCard.setAttribute('aria-hidden','true'); }
-                            // when not accepted, ensure preview card is visible
-                            if (!bookingAccepted && previewCard) { previewCard.style.display = 'block'; previewCard.setAttribute('aria-hidden','false'); }
+                                // Only show info card if chat is NOT open
+                                if (!_chatModalIsOpen) {
+                                    infoCard.style.display = 'block'; 
+                                    infoCard.setAttribute('aria-hidden','false');
+                                }
+                            } else if (bookingCompleted) {
+                                // Completed bookings should hide both active card and preview to avoid regression to pending state
+                                infoCard.style.display = 'none';
+                                infoCard.setAttribute('aria-hidden', 'true');
+                                if (previewCard) {
+                                    previewCard.style.display = 'none';
+                                    previewCard.setAttribute('aria-hidden', 'true');
+                                }
+                                document.body.classList.remove('booking-active');
+                            } else {
+                                infoCard.style.display = 'none'; infoCard.setAttribute('aria-hidden','true');
+                                if (previewCard && !_chatModalIsOpen) { previewCard.style.display = 'block'; previewCard.setAttribute('aria-hidden','false'); }
+                            }
                         }
                     } catch(e) { console.warn('Driver card update failed', e); }
 
-                    // hide loader
-                    try { if (!initialRouteLoadDone) initialRouteLoadDone = true; if (loader) { loader.classList.add('hidden'); loader.setAttribute('aria-hidden','true'); } } catch(e){}
+                    if (bookingCompleted) {
+                        // For completed bookings, clear tracking and trigger a refresh so the payment status banner renders
+                        currentTrackedBookingId = null;
+                        if (trackingInterval) { clearInterval(trackingInterval); trackingInterval = null; }
+                        // Remove any booking-item entries so UI does not revert to pending card
+                        try {
+                            const items = document.querySelectorAll(`.booking-item[data-booking-id="${bookingId}"]`);
+                            items.forEach(el => el.parentNode && el.parentNode.removeChild(el));
+                        } catch (e) { /* ignore */ }
+                        // Allow existing notification toast to display before reload
+                        setTimeout(() => {
+                            if (!window._trikegoReloadedAfterCompletion) {
+                                window._trikegoReloadedAfterCompletion = true;
+                                window.location.reload();
+                            }
+                        }, 1200);
+                    }
+
+                    stageLoadedSuccessfully = true;
                 } catch (err) {
                     console.error('Tracking error', err);
                     const indicator = document.getElementById('status-indicator'); if (indicator) { indicator.style.backgroundColor = '#dc3545'; }
-                    const loader = document.getElementById('route-loader'); if (loader) { loader.classList.add('hidden'); loader.setAttribute('aria-hidden','true'); }
+                    if (loader) { loader.classList.add('hidden'); loader.setAttribute('aria-hidden','true'); }
+                } finally {
+                    if (stage && stageKey && stageLoadedSuccessfully) {
+                        markRouteStageLoaded(bookingKey, stage);
+                    }
+                    if (loader) {
+                        loader.classList.add('hidden');
+                        loader.setAttribute('aria-hidden', 'true');
+                    }
                 }
             }
 
@@ -1068,6 +1231,8 @@
                             if (infoCard) { infoCard.style.display = 'block'; infoCard.setAttribute('aria-hidden','false'); }
                         } catch(e) { console.warn('startTracking UI update failed', e); }
 
+                        // Do NOT reset the route stage here — loader should only show once when acceptance occurs
+                        // resetRouteStage(bookingId, 'active');
                         updateAll(bookingId);
                         if (trackingInterval) clearInterval(trackingInterval);
                         // Poll less aggressively to avoid hitting ORS rate limits; update route every 12s
@@ -1113,6 +1278,13 @@
                             // hide booking panel immediately and start tracking
                             try { document.body.classList.add('booking-active'); const bookingPanel = document.querySelector('.dashboard-booking-card'); if (bookingPanel) bookingPanel.style.display = 'none'; } catch(e){}
                             startTracking(bookingId);
+                        } else if (bookingStatus.includes('completed')) {
+                            // Completed booking without payment verification should hide preview and refresh to show payment banner
+                            try {
+                                const previewCard = document.getElementById('booking-preview-card');
+                                if (previewCard) { previewCard.style.display = 'none'; previewCard.setAttribute('aria-hidden','true'); }
+                                document.body.classList.remove('booking-active');
+                            } catch (e) { /* ignore */ }
                         } else if (previewBooking) {
                             // show preview card
                             const bookingId = previewBooking.dataset.bookingId;
@@ -1136,6 +1308,7 @@
                             // hide booking panel
                             try { document.body.classList.add('booking-active'); const bookingPanel = document.querySelector('.dashboard-booking-card'); if (bookingPanel) bookingPanel.style.display = 'none'; } catch(e){}
                             // draw preview route once
+                            resetRouteStage(bookingId, 'preview');
                             try { updateAll(bookingId); } catch(e){}
                         }
                     }
@@ -1176,6 +1349,13 @@
                                 if ((bookingStatus.includes('accept') || bookingStatus.includes('on the way') || bookingStatus.includes('started')) && (!currentTrackedBookingId || currentTrackedBookingId !== String(bid))) {
                                     // start tracking this booking
                                     try { startTracking(bid); } catch(e){}
+                                } else if (bookingStatus.includes('completed')) {
+                                    // Completed bookings should no longer appear in pending list
+                                    try { el.parentNode && el.parentNode.removeChild(el); } catch (e) { /* ignore */ }
+                                    if (!window._trikegoReloadedAfterCompletion) {
+                                        window._trikegoReloadedAfterCompletion = true;
+                                        setTimeout(() => window.location.reload(), 1200);
+                                    }
                                 }
                             } catch(e) { /* ignore per-item errors */ }
                         }
