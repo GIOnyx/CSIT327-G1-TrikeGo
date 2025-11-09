@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'ratings',
     'drivers',
     'notifications',
+    'discount_codes',
 ]
 
 MIDDLEWARE = [

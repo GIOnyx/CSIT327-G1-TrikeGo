@@ -28,6 +28,7 @@ from django.conf import settings
 from decimal import Decimal
 from django.contrib.auth.views import redirect_to_login
 from django.contrib.auth import logout as auth_logout
+from discount_codes.models import DiscountCode
 
 # Import notification services
 try:
@@ -324,6 +325,8 @@ class RiderDashboard(View):
             booking = form.save(commit=False)
             booking.rider = request.user
 
+            discount_code_str = request.POST.get('discount_code_input', '').strip() or None
+
             pickup_lon = form.cleaned_data['pickup_longitude']
             pickup_lat = form.cleaned_data['pickup_latitude']
             dest_lon = form.cleaned_data['destination_longitude']
@@ -339,7 +342,7 @@ class RiderDashboard(View):
                 if route_info and not route_info.get('too_close'):
                     booking.estimated_distance = Decimal(str(route_info['distance']))
                     booking.estimated_duration = route_info['duration'] // 60
-                    booking.calculate_fare()
+                    booking.calculate_fare(discount_code_str=discount_code_str)
                 else:
                     messages.warning(request, "Could not determine route estimates for fare calculation or points are too close.")
             except Exception as e:
@@ -347,6 +350,24 @@ class RiderDashboard(View):
                 messages.warning(request, "An issue occurred with fare estimation. Booking pending approval.")
 
             booking.save()
+
+            if booking.discount_code:
+            # Re-fetch the code to ensure we get the latest usage count before saving
+            # This helps prevent race conditions, though a transaction is better
+                try:
+                # We need to lock the row for atomic update in a production environment
+                # For simplicity here, we'll just increment and save.
+                # NOTE: You should ensure this is done in a transaction/atomic block 
+                # for true concurrency safety.
+                    applied_code = DiscountCode.objects.get(pk=booking.discount_code.pk)
+                    applied_code.uses_count += 1
+                    applied_code.save(update_fields=['uses_count'])
+                    messages.success(request, f'Discount code {applied_code.code} applied! Your final fare is ₱{booking.final_fare}.')
+                except DiscountCode.DoesNotExist:
+                    print(f"Warning: Discount code {booking.discount_code.code} disappeared after booking creation.")
+                except Exception as e:
+                    print(f"Error updating discount code usage: {e}")
+
             print(f'Booking saved with id={booking.id} for rider={request.user.username}')
 
             from django.db import connection

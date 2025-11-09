@@ -223,6 +223,16 @@
                     {{ booking_form.passengers }}
                 </div>
 
+                <div class="field-row discount-code-container" style="margin-top: 12px; margin-bottom: 12px; padding-top: 8px; border-top: 1px solid #eee;">
+                    <label for="id_discount_code_input">Discount Code (Optional)</label>
+                    {{ booking_form.discount_code_input }}
+                    {% if booking_form.discount_code_input.errors %}
+                        <div class="text-danger" style="font-size: 12px; color: #dc3545; margin-top: 5px;">
+                            {% for error in booking_form.discount_code_input.errors %}{{ error }}{% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+
                 <button type="submit" class="btn btn-primary" style="width: 100%;" {% if latest_unpaid_booking %}disabled title="Settle Trip #{{ latest_unpaid_booking.id }} before booking another ride."{% endif %}>Find a Trike</button>
             </form>
         </div>
