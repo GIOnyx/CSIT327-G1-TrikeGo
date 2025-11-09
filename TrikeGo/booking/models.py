@@ -4,6 +4,7 @@ from django.db import models
 #from user.models import CustomUser 
 from django.utils import timezone
 from decimal import Decimal
+from discount_codes.models import DiscountCode
 
 class Booking(models.Model):
     rider = models.ForeignKey(
@@ -46,7 +47,23 @@ class Booking(models.Model):
     start_time = models.DateTimeField(null=True, blank=True)
     end_time = models.DateTimeField(null=True, blank=True)
     fare = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
-    
+    discount_code = models.ForeignKey(
+        'discount_codes.DiscountCode',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='bookings_used'
+    )
+    discount_amount = models.DecimalField(
+        max_digits=6, 
+        decimal_places=2, 
+        default=Decimal('0.00')
+    )
+    final_fare = models.DecimalField(
+        max_digits=6, 
+        decimal_places=2, 
+        null=True, blank=True,
+    )
+
     # Cash payment verification fields
     payment_pin_hash = models.CharField(max_length=128, null=True, blank=True, help_text="Hashed 4-digit PIN for cash payment verification")
     payment_pin_created_at = models.DateTimeField(null=True, blank=True, help_text="When the PIN was generated")
@@ -60,8 +77,9 @@ class Booking(models.Model):
     estimated_distance = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)  # in km
     estimated_duration = models.IntegerField(null=True, blank=True)  # in minutes
     estimated_arrival = models.DateTimeField(null=True, blank=True)
+    
 
-    def calculate_fare(self):
+    def calculate_fare(self, discount_code_str=None):
         """
         Calculates the estimated fare based on distance and duration.
         estimated_distance should be in km (Decimal) and estimated_duration in minutes (int).
@@ -80,19 +98,49 @@ class Booking(models.Model):
         # 1. Distance Component
         # Ensure estimated_distance is treated as Decimal for multiplication
         distance_cost = self.estimated_distance * PER_KM_RATE
-
-        # 2. Time Component
-        # Convert duration (int minutes) to Decimal
         duration_decimal = Decimal(self.estimated_duration)
         time_cost = duration_decimal * PER_MINUTE_RATE
-
-        # 3. Total Fare
         calculated_fare = BASE_FARE + distance_cost + time_cost
-        
-        # 4. Apply Minimum Fare and Round
-        final_fare = max(calculated_fare, MINIMUM_FARE)
-        
-        # Set the fare field on the instance, rounded to 2 decimal places
+        base_fare = max(calculated_fare, MINIMUM_FARE).quantize(Decimal('0.01'))
+        self.fare = base_fare # Store the fare *before* discount
+
+    # --- Discount Application Logic ---
+        discount_amount = Decimal('0.00')
+        final_fare = base_fare
+
+        # 1. Look up the code if provided
+        if discount_code_str:
+            try:
+                discount_code_obj = DiscountCode.objects.get(
+                    code__iexact=discount_code_str,
+                    is_active=True
+                )
+
+                if not discount_code_obj.is_valid_now:
+                # Code is expired or max uses reached, ignore it
+                    self.discount_code = None
+                elif base_fare < discount_code_obj.min_fare:
+                # Minimum fare not met, ignore it
+                    self.discount_code = None
+                else:
+                    self.discount_code = discount_code_obj
+
+                # 3. Calculate discount amount
+                    if discount_code_obj.discount_type == 'P': # Percentage
+                        discount_percent = discount_code_obj.value / Decimal('100.00')
+                        discount_amount = base_fare * discount_percent
+                    elif discount_code_obj.discount_type == 'F': # Fixed Amount
+                        discount_amount = discount_code_obj.value
+
+                # 4. Ensure discount doesn't make fare negative
+                    discount_amount = min(discount_amount, final_fare)
+                    final_fare = base_fare - discount_amount
+
+            except DiscountCode.DoesNotExist:
+                self.discount_code = None # Code doesn't exist
+
+    # Set final fields
+        self.discount_amount = discount_amount.quantize(Decimal('0.01'))
         self.fare = final_fare.quantize(Decimal('0.01'))
         return self.fare
 
@@ -129,7 +177,6 @@ class Booking(models.Model):
             models.Index(fields=['booking_time']),
             models.Index(fields=['driver', 'status']),
         ]
-
 
 class BookingStop(models.Model):
     """Represents a single pickup or dropoff stop for a booking within a driver's itinerary."""

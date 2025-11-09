@@ -16,6 +16,14 @@ class BookingForm(forms.ModelForm):
             'id': 'id_passengers'
         })
     )
+
+    discount_code_input = forms.CharField(
+        max_length=50,
+        required=False,
+        label="Discount Code (Optional)",
+        help_text="Enter your promotional code here."
+    )
+
     class Meta:
         model = Booking
         fields = [
@@ -26,6 +34,7 @@ class BookingForm(forms.ModelForm):
             'destination_latitude',
             'destination_longitude',
             'passengers',
+            'discount_code',
         ]
         widgets = {
             'pickup_address': forms.TextInput(attrs={
