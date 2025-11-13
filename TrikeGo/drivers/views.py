@@ -197,13 +197,14 @@ def accept_ride(request, booking_id):
                 return JsonResponse({'status': 'error', 'message': msg}, status=400)
             return redirect('drivers:driver_dashboard')
 
-        allowed = pickup_within_detour(request.user, pickup_lat, pickup_lon, max_km=5.0)
-        if not allowed:
-            msg = 'Pickup is too far from your current route to accept this booking.'
-            messages.error(request, msg)
-            if _wants_json(request):
-                return JsonResponse({'status': 'error', 'message': msg}, status=400)
-            return redirect('drivers:driver_dashboard')
+        # Temporarily disable detour enforcement to allow all bookings during testing.
+        # allowed = pickup_within_detour(request.user, pickup_lat, pickup_lon, max_km=5.0)
+        # if not allowed:
+        #     msg = 'Pickup is too far from your current route to accept this booking.'
+        #     messages.error(request, msg)
+        #     if _wants_json(request):
+        #         return JsonResponse({'status': 'error', 'message': msg}, status=400)
+        #     return redirect('drivers:driver_dashboard')
     except Exception:
         msg = 'Could not compute detour check; please ensure location sharing is enabled.'
         messages.warning(request, msg)

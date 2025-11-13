@@ -366,17 +366,23 @@
             <form id="rating-form" method="post" action="{% url 'ratings:submit_rating_ajax' unrated_booking.id %}">
                 {% csrf_token %}
                 
-                <div class="form-group text-center my-3">
+                <div class="form-group my-3 rating-form-group">
                     
                     {# The label is usually hidden by CSS in star ratings, but keep it for accessibility #}
                     {{ rating_form.rating_value.label_tag }}
 
-                    {# 👇 THE CRITICAL CHANGE: Added the rating-stars class container 👇 #}
-                    <div class="rating-stars">
-                        {{ rating_form.rating_value }}
+                    <div class="rating-stars" role="radiogroup" aria-label="Select a star rating">
+                        {% for radio in rating_form.rating_value %}
+                            {{ radio.tag }}
+                            <label for="{{ radio.id_for_label }}" class="rating-star" data-rating="{{ radio.choice_value }}" aria-label="{{ radio.choice_label }} star{% if radio.choice_value != "1" %}s{% endif %}">
+                                <span class="rating-star__icon" aria-hidden="true">★</span>
+                            </label>
+                        {% endfor %}
                     </div>
-                    
-                    {% if rating_form.rating_value.errors %}<div class="text-danger">{{ rating_form.rating_value.errors }}</div>{% endif %}
+
+                    {% if rating_form.rating_value.errors %}
+                        <div class="text-danger small mt-2">{{ rating_form.rating_value.errors }}</div>
+                    {% endif %}
                 </div>
                 
                 <div class="form-group mb-3">

@@ -7,6 +7,7 @@
     const historyList = document.getElementById('history-trips-list');
     const walletPanel = document.getElementById('driver-wallet-panel');
     const ridesPanel = document.getElementById('driver-rides-panel');
+    const statsPanel = document.getElementById('driver-statistics-panel');
     
     // Rider elements  
     const riderHistoryIcon = document.getElementById('rider-history-icon');
@@ -219,6 +220,11 @@
                     ridesPanel.style.display = 'none';
                     ridesPanel.setAttribute('aria-hidden', 'true');
                     document.body.classList.remove('rides-panel-open');
+                }
+                if (statsPanel) {
+                    statsPanel.style.display = 'none';
+                    statsPanel.setAttribute('aria-hidden', 'true');
+                    document.body.classList.remove('stats-panel-open');
                 }
             }
 
