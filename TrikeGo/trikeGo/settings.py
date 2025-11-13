@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'drivers',
     'notifications',
     'discount_codes',
+    'driver_statistics.apps.DriverStatisticsConfig',
 ]
 
 MIDDLEWARE = [

@@ -7,6 +7,7 @@
     <title>Driver Dashboard - TrikeGo</title>
     <link rel="stylesheet" href="{% static 'user/css/driver_dashboard.css' %}?v=4" />
     <link rel="stylesheet" href="{% static 'wallet/css/driver_wallet_panel.css' %}?v=1" />
+    <link rel="stylesheet" href="{% static 'booking/css/driver_statistics_panel.css' %}?v=1" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
 </head>
 <body
@@ -180,6 +181,80 @@
         </div>
     </div>
 
+    <div id="driver-statistics-panel" class="wallet-panel driver-statistics-panel" aria-hidden="true">
+        <div class="wallet-panel__header">
+            <div>
+                <h2>Performance Stats</h2>
+                <p>How you&apos;re doing this week</p>
+            </div>
+            <button id="close-driver-statistics-panel" aria-label="Close statistics panel">×</button>
+        </div>
+        <div class="wallet-panel__body">
+            <div id="driver-statistics-loader" class="wallet-panel__loader" role="status" aria-live="polite">
+                <div class="spinner" aria-hidden="true"></div>
+                <p>Loading statistics…</p>
+            </div>
+            <div id="driver-statistics-error" class="wallet-panel__error" role="alert" style="display:none;"></div>
+            <div id="driver-statistics-content" class="wallet-panel__content driver-statistics-panel__content" style="display:none;">
+                <div class="driver-statistics-summary-grid">
+                    <div class="driver-statistics-card" aria-live="polite">
+                        <span class="driver-statistics-card__label">Total rides</span>
+                        <span id="driver-stats-total-rides" class="driver-statistics-card__value">—</span>
+                        <span class="driver-statistics-card__meta">Lifetime trips</span>
+                    </div>
+                    <div class="driver-statistics-card">
+                        <span class="driver-statistics-card__label">Completed</span>
+                        <span id="driver-stats-completed-rides" class="driver-statistics-card__value">—</span>
+                        <span class="driver-statistics-card__meta">Trips finished</span>
+                    </div>
+                    <div class="driver-statistics-card">
+                        <span class="driver-statistics-card__label">Active now</span>
+                        <span id="driver-stats-active-rides" class="driver-statistics-card__value">—</span>
+                        <span class="driver-statistics-card__meta">Pending &amp; in-progress</span>
+                    </div>
+                    <div class="driver-statistics-card">
+                        <span class="driver-statistics-card__label">Cancelled</span>
+                        <span id="driver-stats-cancelled-rides" class="driver-statistics-card__value">—</span>
+                        <span class="driver-statistics-card__meta">Rider or driver</span>
+                    </div>
+                    <div class="driver-statistics-card">
+                        <span class="driver-statistics-card__label">Completion rate</span>
+                        <span id="driver-stats-completion-rate" class="driver-statistics-card__value">—</span>
+                        <span class="driver-statistics-card__meta">Completed vs total</span>
+                    </div>
+                    <div class="driver-statistics-card">
+                        <span class="driver-statistics-card__label">Cancellation rate</span>
+                        <span id="driver-stats-cancellation-rate" class="driver-statistics-card__value">—</span>
+                        <span class="driver-statistics-card__meta">Cancelled vs total</span>
+                    </div>
+                    <div class="driver-statistics-card">
+                        <span class="driver-statistics-card__label">Avg rating</span>
+                        <span id="driver-stats-average-rating" class="driver-statistics-card__value">—</span>
+                        <span id="driver-stats-average-rating-meta" class="driver-statistics-card__meta">Recent feedback</span>
+                    </div>
+                    <div class="driver-statistics-card driver-statistics-card--highlight">
+                        <span class="driver-statistics-card__label">Today&apos;s earnings</span>
+                        <span id="driver-stats-today-earnings" class="driver-statistics-card__value">—</span>
+                        <span class="driver-statistics-card__meta">Completed trips today</span>
+                    </div>
+                </div>
+
+                <section class="driver-statistics-section" aria-label="Daily trip trends">
+                    <div class="driver-statistics-section__header">
+                        <h3>Last 7 days</h3>
+                        <span>Completed trips per day</span>
+                    </div>
+                    <div class="driver-statistics-section__body">
+                        <img id="driver-statistics-daily-chart" src="" alt="Bar chart showing daily trips" style="display:none;"/>
+                        <ul id="driver-statistics-daily-list" class="driver-statistics-daily-list">
+                            <!-- Filled via JS as fallback when chart not available -->
+                        </ul>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
     <div id="map-container">
         <div class="map-legend" id="map-legend" aria-hidden="false">
             <div class="legend-item"><span class="legend-dot driver"></span> Driver</div>
@@ -215,6 +290,9 @@
                         </a>
                         <a id="history-icon" class="nav-icon" title="Trip History" href="#" aria-label="Trip History">
                             <img src="{% static 'user/images/history.png' %}" alt="History">
+                        </a>
+                        <a id="statistics-icon" class="nav-icon" title="Statistics" href="#" aria-label="Statistics">
+                            <img src="{% static 'user/images/stats.png' %}" alt="Statistics">
                         </a>
                         <a id="payments-icon" class="nav-icon" title="Payments" href="#" aria-label="Payments">
                             <img src="{% static 'user/images/card_icon.png' %}" alt="Payments">
@@ -284,6 +362,7 @@
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
     <script src="{% static 'booking/js/driver_dashboard_config.js' %}"></script>
     <script src="{% static 'booking/js/driver_panel_manager.js' %}"></script>
+    <script src="{% static 'booking/js/driver_statistics_panel.js' %}?v=1"></script>
     <script src="{% static 'booking/js/driver_dashboard.js' %}?v=10"></script>
     <script src="{% static 'wallet/js/driver_wallet.js' %}?v=2"></script>
     <script src="{% static 'booking/js/driver_rides_panel.js' %}?v=1"></script>

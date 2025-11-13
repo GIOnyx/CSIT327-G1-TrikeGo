@@ -41,6 +41,7 @@ urlpatterns = [
     path('ratings/', include('ratings.urls')),
     path('drivers/', include('drivers.urls')),
     path('notifications/', include('notifications.urls')),
+    path('statistics/', include('driver_statistics.urls')),
 ]
 
 # Development helper: serve static files directly from the `static/` dirs when

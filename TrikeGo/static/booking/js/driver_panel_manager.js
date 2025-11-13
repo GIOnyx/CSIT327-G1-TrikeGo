@@ -3,12 +3,14 @@
         wallet: document.getElementById('driver-wallet-panel'),
         history: document.getElementById('driver-history-panel'),
         rides: document.getElementById('driver-rides-panel'),
+        stats: document.getElementById('driver-statistics-panel'),
     };
 
     const bodyClasses = {
         wallet: 'wallet-panel-open',
         history: 'history-panel-open',
         rides: 'rides-panel-open',
+        stats: 'stats-panel-open',
     };
 
     function safeHide(panelKey) {
@@ -27,6 +29,10 @@
             window.closeDriverRidesPanel();
             return;
         }
+        if (panelKey === 'stats' && typeof window.closeDriverStatisticsPanel === 'function') {
+            window.closeDriverStatisticsPanel();
+            return;
+        }
 
         if (panelEl) {
             panelEl.style.display = 'none';
@@ -38,7 +44,7 @@
     }
 
     function closeAll(exceptKey) {
-        ['wallet', 'history', 'rides'].forEach((key) => {
+        ['wallet', 'history', 'rides', 'stats'].forEach((key) => {
             if (key !== exceptKey) {
                 safeHide(key);
             }
@@ -50,5 +56,6 @@
         closeWallet: () => safeHide('wallet'),
         closeHistory: () => safeHide('history'),
         closeRides: () => safeHide('rides'),
+        closeStats: () => safeHide('stats'),
     };
 })();

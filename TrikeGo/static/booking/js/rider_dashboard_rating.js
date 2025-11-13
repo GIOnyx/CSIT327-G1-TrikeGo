@@ -16,6 +16,45 @@
             return;
         }
 
+        const ratingInputs = form.querySelectorAll('.rating-stars input[type="radio"]');
+
+        function updateStarStates(selectedValue) {
+            ratingInputs.forEach((input) => {
+                const star = input.nextElementSibling;
+                if (!star) return;
+                const isActive = Number(input.value) <= Number(selectedValue);
+                star.classList.toggle('rating-star--active', isActive);
+            });
+        }
+
+        function refreshFromChecked() {
+            const checked = form.querySelector('.rating-stars input[type="radio"]:checked');
+            if (checked) {
+                updateStarStates(checked.value);
+            } else if (ratingInputs.length) {
+                ratingInputs[0].checked = true;
+                updateStarStates(ratingInputs[0].value);
+            } else {
+                updateStarStates(0);
+            }
+        }
+
+        ratingInputs.forEach((input) => {
+            input.addEventListener('change', () => {
+                updateStarStates(input.value);
+            });
+
+            const star = input.nextElementSibling;
+            if (star) {
+                star.addEventListener('mouseenter', () => updateStarStates(input.value));
+                star.addEventListener('focus', () => updateStarStates(input.value));
+                star.addEventListener('mouseleave', refreshFromChecked);
+                star.addEventListener('blur', refreshFromChecked);
+            }
+        });
+
+        refreshFromChecked();
+
         form.addEventListener('submit', async (event) => {
             event.preventDefault();
 

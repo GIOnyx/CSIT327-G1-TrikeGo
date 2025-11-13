@@ -1,0 +1,135 @@
+.driver-statistics-panel {
+    z-index: 1540;
+}
+
+.driver-statistics-panel__content {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.driver-statistics-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 14px;
+}
+
+.driver-statistics-card {
+    background: linear-gradient(135deg, #102038 0%, #1c3b62 100%);
+    border-radius: 12px;
+    padding: 16px;
+    color: #f0f4ff;
+    box-shadow: 0 12px 28px rgba(12, 28, 52, 0.28);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.driver-statistics-card--highlight {
+    background: linear-gradient(135deg, #0b63d6 0%, #0f8ed3 100%);
+    color: #ffffff;
+    box-shadow: 0 14px 32px rgba(11, 99, 214, 0.35);
+}
+
+.driver-statistics-card__label {
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(240, 244, 255, 0.75);
+}
+
+.driver-statistics-card--highlight .driver-statistics-card__label {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.driver-statistics-card__value {
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.driver-statistics-card__meta {
+    font-size: 12px;
+    color: rgba(240, 244, 255, 0.7);
+}
+
+.driver-statistics-card--highlight .driver-statistics-card__meta {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.driver-statistics-section {
+    background: rgba(12, 27, 46, 0.92);
+    border-radius: 16px;
+    padding: 18px;
+    box-shadow: 0 18px 40px rgba(9, 19, 33, 0.35);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.driver-statistics-section__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    color: #f5f7ff;
+}
+
+.driver-statistics-section__header h3 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 600;
+}
+
+.driver-statistics-section__header span {
+    font-size: 13px;
+    color: rgba(245, 247, 255, 0.68);
+}
+
+.driver-statistics-section__body {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+}
+
+#driver-statistics-daily-chart {
+    border-radius: 12px;
+    width: 100%;
+    max-height: 240px;
+    box-shadow: 0 12px 26px rgba(10, 27, 45, 0.35);
+}
+
+.driver-statistics-daily-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.driver-statistics-daily-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #0f1f35 0%, #1c3d63 100%);
+    color: #f0f4ff;
+    font-size: 13px;
+}
+
+.driver-statistics-daily-item__value {
+    font-weight: 700;
+    font-size: 15px;
+}
+
+@media (max-height: 840px) {
+    .driver-statistics-summary-grid {
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    }
+
+    .driver-statistics-card__value {
+        font-size: 20px;
+    }
+}

@@ -16,6 +16,7 @@
 	const tripsListEl = document.getElementById('wallet-trips-list');
 	const historyPanel = document.getElementById('driver-history-panel');
 	const ridesPanel = document.getElementById('driver-rides-panel');
+	const statsPanel = document.getElementById('driver-statistics-panel');
 
 	let isLoading = false;
 
@@ -232,6 +233,11 @@
 				ridesPanel.style.display = 'none';
 				ridesPanel.setAttribute('aria-hidden', 'true');
 				document.body.classList.remove('rides-panel-open');
+			}
+			if (statsPanel && statsPanel.style.display === 'flex') {
+				statsPanel.style.display = 'none';
+				statsPanel.setAttribute('aria-hidden', 'true');
+				document.body.classList.remove('stats-panel-open');
 			}
 		}
 

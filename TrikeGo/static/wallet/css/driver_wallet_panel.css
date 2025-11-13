@@ -617,7 +617,8 @@
 
 body.wallet-panel-open .driver-info-card,
 body.history-panel-open .driver-info-card,
-body.rides-panel-open .driver-info-card {
+body.rides-panel-open .driver-info-card,
+body.stats-panel-open .driver-info-card {
     left: 508px;
 }
 
@@ -630,7 +631,8 @@ body.rides-panel-open .driver-info-card {
 
     body.wallet-panel-open .driver-info-card,
     body.history-panel-open .driver-info-card,
-    body.rides-panel-open .driver-info-card {
+    body.rides-panel-open .driver-info-card,
+    body.stats-panel-open .driver-info-card {
         left: 12px;
     }
 

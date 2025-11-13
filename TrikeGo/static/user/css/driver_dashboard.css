@@ -543,7 +543,8 @@ body.sidebar-expanded .driver-info-card {
 /* When history panel is open, move itinerary to the right */
 body.history-panel-open .driver-info-card,
 body.wallet-panel-open .driver-info-card,
-body.rides-panel-open .driver-info-card {
+body.rides-panel-open .driver-info-card,
+body.stats-panel-open .driver-info-card {
   left: 508px; /* 108px (sidebar+gap) + 380px (panel) + 20px (gap) */
 }
 
