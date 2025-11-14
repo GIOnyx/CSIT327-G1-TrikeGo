@@ -27,6 +27,347 @@
         return cookieValue;
     }
 
+    const driverAvailability = {
+        status: 'Offline',
+        busy: false,
+        button: null,
+        label: null,
+        control: null,
+        map: null,
+        marker: null,
+        pendingLocation: null,
+        shouldCenterNext: false,
+        hasActiveTrip: Boolean(cfg.hasActiveTrip),
+    };
+
+    function normalizeDriverStatus(value) {
+        if (value === 'Online' || value === 'Offline' || value === 'In_trip') {
+            return value;
+        }
+        return 'Offline';
+    }
+
+    function driverStatusLabel(value) {
+        if (value === 'In_trip') {
+            return 'In trip';
+        }
+        return value || 'Offline';
+    }
+
+    function setDriverAvailabilityUI() {
+        if (!driverAvailability.button || !driverAvailability.label) {
+            return;
+        }
+        const status = driverAvailability.status;
+        const label = driverStatusLabel(status);
+        driverAvailability.label.textContent = label;
+        const actionHint = status === 'Online' ? 'Go offline' : (status === 'Offline' ? 'Go online' : 'Trip in progress');
+        driverAvailability.button.setAttribute('aria-pressed', status === 'Online' ? 'true' : 'false');
+        driverAvailability.button.setAttribute('aria-label', `${label}. ${actionHint}.`);
+        driverAvailability.button.classList.toggle('is-online', status === 'Online');
+        driverAvailability.button.classList.toggle('is-offline', status === 'Offline');
+        driverAvailability.button.classList.toggle('is-intrip', status === 'In_trip');
+        driverAvailability.button.classList.toggle('is-busy', driverAvailability.busy);
+        driverAvailability.button.disabled = driverAvailability.busy || status === 'In_trip';
+        if (driverAvailability.control) {
+            driverAvailability.control.classList.toggle('is-online', status === 'Online');
+            driverAvailability.control.classList.toggle('is-offline', status === 'Offline');
+            driverAvailability.control.classList.toggle('is-intrip', status === 'In_trip');
+        }
+    }
+
+    function clearDriverAvailabilityMarker() {
+        driverAvailability.pendingLocation = null;
+        if (driverAvailability.marker && driverAvailability.map) {
+            try {
+                driverAvailability.map.removeLayer(driverAvailability.marker);
+            } catch (err) {
+                console.warn('Availability marker removal failed', err);
+            }
+        }
+        driverAvailability.marker = null;
+    }
+
+    function clearDriverReviewOverlays() {
+        const map = window.DRIVER_MAP;
+        const refs = [
+            '_driverReviewLayer',
+            '_driverReviewDriverToPickupLayer',
+            '_driverReviewDriverMarker',
+            '_driverReviewPickupMarker',
+            '_driverReviewDestMarker',
+        ];
+        refs.forEach((ref) => {
+            const layer = window[ref];
+            if (!layer) {
+                window[ref] = null;
+                return;
+            }
+            try {
+                if (map && typeof map.removeLayer === 'function') {
+                    map.removeLayer(layer);
+                } else if (layer.remove) {
+                    layer.remove();
+                }
+            } catch (err) {
+                console.warn('Failed to remove review overlay', ref, err);
+            }
+            window[ref] = null;
+        });
+    }
+    window.clearDriverReviewOverlays = clearDriverReviewOverlays;
+
+    function ensureDriverAvailabilityMarker(location) {
+        if (!location) {
+            return;
+        }
+        const lat = Number(location.lat ?? location.latitude);
+        const lon = Number(location.lon ?? location.longitude);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+            return;
+        }
+        driverAvailability.pendingLocation = { lat, lon };
+        if (!driverAvailability.map || typeof L === 'undefined') {
+            return;
+        }
+        if (!driverAvailability.marker) {
+            try {
+                const icon = L.divIcon({
+                    className: 'driver-marker driver-availability-marker',
+                    html: '<div class="marker-inner"></div>',
+                    iconSize: [30, 30]
+                });
+                driverAvailability.marker = L.marker([lat, lon], { icon }).addTo(driverAvailability.map).bindPopup('You are here');
+            } catch (err) {
+                console.warn('Availability marker init failed', err);
+                return;
+            }
+        } else {
+            try {
+                driverAvailability.marker.setLatLng([lat, lon]);
+            } catch (err) {
+                console.warn('Availability marker update failed', err);
+            }
+        }
+        if (driverAvailability.shouldCenterNext) {
+            try {
+                const currentZoom = driverAvailability.map.getZoom();
+                driverAvailability.map.setView([lat, lon], currentZoom < 14 ? 14 : currentZoom);
+            } catch (err) {
+                console.warn('Availability auto-center failed', err);
+            }
+            driverAvailability.shouldCenterNext = false;
+        }
+    }
+
+    function applyDriverAvailabilityBehavior(status) {
+        const isOnline = status === 'Online';
+        driverAvailability.shouldCenterNext = isOnline;
+
+        if (isOnline) {
+            if (typeof window.startLocationTracking === 'function') {
+                window.startLocationTracking(false);
+            }
+            if (driverAvailability.pendingLocation) {
+                ensureDriverAvailabilityMarker(driverAvailability.pendingLocation);
+            }
+            return;
+        }
+
+        clearDriverAvailabilityMarker();
+        if (status === 'Offline' && typeof window.stopLocationTracking === 'function') {
+            window.stopLocationTracking();
+        }
+    }
+
+    function setDriverAvailabilityStatus(newStatus, options = {}) {
+        const normalized = normalizeDriverStatus(newStatus);
+        const previous = driverAvailability.status;
+        driverAvailability.status = normalized;
+        if (window.console && typeof console.log === 'function') {
+            console.log('[driver-availability] status update', {
+                previous,
+                next: normalized,
+                forced: Boolean(options.force),
+            });
+        }
+        setDriverAvailabilityUI();
+        if (options.force || previous !== normalized) {
+            applyDriverAvailabilityBehavior(normalized);
+        }
+    }
+
+    function setDriverAvailabilityBusy(flag) {
+        driverAvailability.busy = Boolean(flag);
+        setDriverAvailabilityUI();
+    }
+
+    async function postDriverAvailability(nextStatus) {
+        if (!cfg.driverStatusEndpoint) {
+            return;
+        }
+        setDriverAvailabilityBusy(true);
+        const csrf = (cfg.csrfToken && cfg.csrfToken !== 'NOTPROVIDED') ? cfg.csrfToken : getCookie('csrftoken');
+        if (!csrf) {
+            console.warn('Driver status update missing CSRF token; request may be rejected.');
+        }
+        if (window.console && typeof console.log === 'function') {
+            console.log('[driver-availability] posting update', { nextStatus, csrfPresent: Boolean(csrf) });
+        }
+        try {
+            const response = await fetch(cfg.driverStatusEndpoint, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrf || '',
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({ status: nextStatus })
+            });
+            const payload = await response.json().catch(() => null);
+            if (window.console && typeof console.log === 'function') {
+                console.log('[driver-availability] server response', { status: response.status, payload });
+            }
+            if (!response.ok || !payload || payload.status !== 'success') {
+                const message = payload && payload.message ? payload.message : 'Unable to update availability.';
+                throw new Error(message);
+            }
+            const resolvedStatus = payload.driverStatus || nextStatus;
+            setDriverAvailabilityStatus(resolvedStatus, { force: true });
+            if (payload && Object.prototype.hasOwnProperty.call(payload, 'hasActiveTrip')) {
+                driverAvailability.hasActiveTrip = Boolean(payload.hasActiveTrip);
+            }
+            if (payload.currentLocation) {
+                driverAvailability.pendingLocation = payload.currentLocation;
+                if (driverAvailability.status === 'Online') {
+                    ensureDriverAvailabilityMarker(payload.currentLocation);
+                }
+            }
+        } catch (err) {
+            alert(err.message || 'Unable to update availability.');
+        } finally {
+            setDriverAvailabilityBusy(false);
+        }
+    }
+
+    async function refreshDriverAvailabilityFromServer() {
+        if (!cfg.driverStatusEndpoint) {
+            return;
+        }
+        try {
+            const response = await fetch(cfg.driverStatusEndpoint, {
+                credentials: 'same-origin',
+                headers: {
+                    'Accept': 'application/json',
+                },
+            });
+            if (window.console && typeof console.log === 'function') {
+                console.log('[driver-availability] refresh response status', response.status);
+            }
+            if (!response.ok) {
+                return;
+            }
+            const payload = await response.json().catch(() => null);
+            if (window.console && typeof console.log === 'function') {
+                console.log('[driver-availability] refresh payload', payload);
+            }
+            if (!payload) {
+                return;
+            }
+            if (Object.prototype.hasOwnProperty.call(payload, 'hasActiveTrip')) {
+                driverAvailability.hasActiveTrip = Boolean(payload.hasActiveTrip);
+            }
+            if (payload.driverStatus) {
+                setDriverAvailabilityStatus(payload.driverStatus, { force: false });
+            }
+            if (payload.currentLocation) {
+                driverAvailability.pendingLocation = payload.currentLocation;
+                if (driverAvailability.status === 'Online') {
+                    ensureDriverAvailabilityMarker(payload.currentLocation);
+                }
+            }
+        } catch (err) {
+            console.warn('Driver availability refresh failed', err);
+        }
+    }
+
+    function handleDriverAvailabilityToggle(event) {
+        if (event) {
+            event.preventDefault();
+        }
+        if (driverAvailability.busy || driverAvailability.status === 'In_trip') {
+            if (window.console && typeof console.log === 'function') {
+                console.log('[driver-availability] click ignored', {
+                    busy: driverAvailability.busy,
+                    status: driverAvailability.status,
+                    hasActiveTrip: driverAvailability.hasActiveTrip,
+                });
+            }
+            return;
+        }
+        if (window.console && typeof console.log === 'function') {
+            console.log('[driver-availability] toggle clicked', {
+                currentStatus: driverAvailability.status,
+                hasActiveTrip: driverAvailability.hasActiveTrip,
+            });
+        }
+        const nextStatus = driverAvailability.status === 'Online' ? 'Offline' : 'Online';
+        postDriverAvailability(nextStatus);
+    }
+
+    function bindDriverAvailabilityControls() {
+        driverAvailability.button = document.getElementById('driver-availability-toggle');
+        driverAvailability.label = document.getElementById('driver-availability-status');
+        driverAvailability.control = document.getElementById('driver-availability-control');
+        if (driverAvailability.button) {
+            driverAvailability.button.addEventListener('click', handleDriverAvailabilityToggle);
+        }
+        let initialStatus = normalizeDriverStatus(cfg.driverStatus || 'Offline');
+        driverAvailability.hasActiveTrip = Boolean(cfg.hasActiveTrip);
+        if (initialStatus === 'Offline' && driverAvailability.hasActiveTrip) {
+            initialStatus = 'In_trip';
+        }
+    setDriverAvailabilityStatus(initialStatus, { force: initialStatus === 'Online' });
+        setDriverAvailabilityUI();
+        if (cfg.driverStatusEndpoint) {
+            refreshDriverAvailabilityFromServer();
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', bindDriverAvailabilityControls);
+    document.addEventListener('driver:mapReady', function(event) {
+        driverAvailability.map = (event && event.detail && event.detail.map) ? event.detail.map : window.DRIVER_MAP;
+        if (driverAvailability.status === 'Online' && driverAvailability.pendingLocation) {
+            ensureDriverAvailabilityMarker(driverAvailability.pendingLocation);
+        }
+    });
+    document.addEventListener('driver:rideAccepted', function() {
+        refreshDriverAvailabilityFromServer();
+    });
+    document.addEventListener('driver:rideCancelled', function() {
+        refreshDriverAvailabilityFromServer();
+    });
+
+    window.updateDriverAvailabilityUI = function(status, options) {
+        const normalized = normalizeDriverStatus(status);
+        const force = options && options.force;
+        setDriverAvailabilityStatus(normalized, { force: Boolean(force) });
+    };
+    window.updateDriverAvailabilityMarker = function(location) {
+        if (!location) {
+            clearDriverAvailabilityMarker();
+            return;
+        }
+        if (driverAvailability.status !== 'Online') {
+            driverAvailability.pendingLocation = location;
+            return;
+        }
+        ensureDriverAvailabilityMarker(location);
+    };
+    window.refreshDriverAvailability = refreshDriverAvailabilityFromServer;
+    window.driverAvailabilityState = driverAvailability;
+
     // Helper: escape HTML
     function escapeHtml(str) {
         return String(str).replace(/[&<>"']/g, function (s) {
@@ -298,7 +639,22 @@
                 }, 1200);
             }
 
+            try {
+                if (typeof window.clearDriverReviewOverlays === 'function') {
+                    window.clearDriverReviewOverlays();
+                }
+            } catch (overlayErr) {
+                console.warn('Unable to clear preview overlays after accept', overlayErr);
+            }
+
             document.dispatchEvent(new CustomEvent('driver:rideAccepted', { detail: payload.booking }));
+            if (typeof window.refreshDriverAvailability === 'function') {
+                try {
+                    window.refreshDriverAvailability();
+                } catch (err) {
+                    console.warn('Driver availability refresh failed after accept', err);
+                }
+            }
 
             try {
                 if (typeof fetchItineraryData === 'function') {
@@ -402,6 +758,7 @@
             summaryActionBtn: document.getElementById('summary-action-btn'),
             summaryStopNum: document.getElementById('summary-stop-num'),
             summaryStopTotal: document.getElementById('summary-stop-total'),
+            summaryCapacity: document.getElementById('summary-capacity'),
             expandBtn: document.getElementById('itinerary-expand-btn'),
             collapseBtn: document.getElementById('itinerary-collapse-btn'),
             fullBookingCount: document.getElementById('full-booking-count'),
@@ -422,7 +779,7 @@
         itineraryDom.card.classList.add('collapsed');
 
         if (itineraryDom.expandBtn) {
-            itineraryDom.expandBtn.addEventListener('click', () => toggleItinerary(true));
+            itineraryDom.expandBtn.addEventListener('click', () => toggleItinerary());
         }
         if (itineraryDom.collapseBtn) {
             itineraryDom.collapseBtn.addEventListener('click', () => toggleItinerary(false));
@@ -440,11 +797,19 @@
 
     function toggleItinerary(expand) {
         if (!itineraryDom.card) return;
-        itineraryExpanded = !!expand;
+        if (typeof expand === 'undefined') {
+            itineraryExpanded = !itineraryExpanded;
+        } else {
+            itineraryExpanded = !!expand;
+        }
         itineraryDom.card.classList.toggle('expanded', itineraryExpanded);
         itineraryDom.card.classList.toggle('collapsed', !itineraryExpanded);
         if (itineraryDom.fullContainer) {
             itineraryDom.fullContainer.style.display = itineraryExpanded ? 'block' : 'none';
+        }
+        if (itineraryDom.expandBtn) {
+            itineraryDom.expandBtn.textContent = itineraryExpanded ? 'Close Itinerary' : 'View Full Itinerary';
+            itineraryDom.expandBtn.setAttribute('aria-expanded', itineraryExpanded ? 'true' : 'false');
         }
     }
 
@@ -990,6 +1355,7 @@
             if (itineraryDom.fullEarnings) itineraryDom.fullEarnings.textContent = '0.00';
             if (itineraryDom.summaryStopNum) itineraryDom.summaryStopNum.textContent = '0';
             if (itineraryDom.summaryStopTotal) itineraryDom.summaryStopTotal.textContent = '0';
+            if (itineraryDom.summaryCapacity) itineraryDom.summaryCapacity.textContent = '0 / 0';
             if (itineraryDom.chatBtn) {
                 itineraryDom.chatBtn.disabled = true;
                 itineraryDom.chatBtn.removeAttribute('data-chat-booking-id');
@@ -1015,6 +1381,7 @@
             if (itineraryDom.fullEarnings) itineraryDom.fullEarnings.textContent = (itineraryData.totalEarnings || 0).toFixed(2);
             if (itineraryDom.summaryStopNum) itineraryDom.summaryStopNum.textContent = '0';
             if (itineraryDom.summaryStopTotal) itineraryDom.summaryStopTotal.textContent = '0';
+            if (itineraryDom.summaryCapacity) itineraryDom.summaryCapacity.textContent = `${itineraryData.totalPassengers || 0} / ${itineraryData.maxCapacity || 0}`;
             if (itineraryDom.chatBtn) {
                 itineraryDom.chatBtn.disabled = true;
                 itineraryDom.chatBtn.removeAttribute('data-chat-booking-id');
@@ -1056,6 +1423,7 @@
         if (itineraryDom.fullBookingCount) itineraryDom.fullBookingCount.textContent = String(itineraryData.totalBookings || 0);
         if (itineraryDom.fullCapacity) itineraryDom.fullCapacity.textContent = `${itineraryData.totalPassengers || 0} / ${itineraryData.maxCapacity || 0}`;
         if (itineraryDom.fullEarnings) itineraryDom.fullEarnings.textContent = (itineraryData.totalEarnings || 0).toFixed(2);
+        if (itineraryDom.summaryCapacity) itineraryDom.summaryCapacity.textContent = `${itineraryData.totalPassengers || 0} / ${itineraryData.maxCapacity || 0}`;
 
         if (itineraryDom.chatBtn) {
             const chatBookingId = getPreferredChatBookingId();
@@ -1108,6 +1476,13 @@
                 throw new Error(`Status ${response.status}`);
             }
             const payload = await response.json();
+            if (payload && payload.driverStatus && typeof window.updateDriverAvailabilityUI === 'function') {
+                try {
+                    window.updateDriverAvailabilityUI(payload.driverStatus);
+                } catch (err) {
+                    console.warn('Driver availability sync failed', err);
+                }
+            }
             if (!payload || payload.status !== 'success') {
                 throw new Error('Invalid itinerary payload');
             }
@@ -1365,6 +1740,13 @@
             }
 
             const payload = await response.json();
+            if (payload && payload.driverStatus && typeof window.updateDriverAvailabilityUI === 'function') {
+                try {
+                    window.updateDriverAvailabilityUI(payload.driverStatus);
+                } catch (err) {
+                    console.warn('Driver availability sync (stop completion) failed', err);
+                }
+            }
             if (payload && payload.itinerary) {
                 itineraryData = payload.itinerary;
                 updateTrackingState();
@@ -1649,6 +2031,11 @@
 
             // Expose map instance for review buttons and wire review button clicks
             window.DRIVER_MAP = map;
+            try {
+                document.dispatchEvent(new CustomEvent('driver:mapReady', { detail: { map } }));
+            } catch (err) {
+                console.warn('driver:mapReady dispatch failed', err);
+            }
             initItinerary(map);
             startAvailableRidesPolling();
             document.addEventListener('visibilitychange', () => {
@@ -1656,8 +2043,26 @@
                     refreshAvailableRidesList(true);
                 }
             });
-            document.addEventListener('driver:rideAccepted', () => refreshAvailableRidesList(true));
-            document.addEventListener('driver:rideCancelled', () => refreshAvailableRidesList(true));
+            document.addEventListener('driver:rideAccepted', () => {
+                try {
+                    if (typeof window.clearDriverReviewOverlays === 'function') {
+                        window.clearDriverReviewOverlays();
+                    }
+                } catch (err) {
+                    console.warn('Failed to clear preview overlays on accept event', err);
+                }
+                refreshAvailableRidesList(true);
+            });
+            document.addEventListener('driver:rideCancelled', () => {
+                try {
+                    if (typeof window.clearDriverReviewOverlays === 'function') {
+                        window.clearDriverReviewOverlays();
+                    }
+                } catch (err) {
+                    console.warn('Failed to clear preview overlays on cancel event', err);
+                }
+                refreshAvailableRidesList(true);
+            });
             // Sidebar toggles: rides icon opens the hidden sidebar-content; open-rides button also opens it
             try {
                 const ridesIconEl = document.getElementById('rides-icon');
@@ -1718,12 +2123,7 @@
                         const rd = await rdRes.json();
                         if (rd && rd.features && rd.features[0]) {
                             console.log('ORS returned route features', rd.features[0]);
-                            // remove previous review layers/markers if any
-                            try { if (window._driverReviewLayer) { window.DRIVER_MAP.removeLayer(window._driverReviewLayer); window._driverReviewLayer = null; } } catch(e){}
-                            try { if (window._driverReviewDriverMarker) { window.DRIVER_MAP.removeLayer(window._driverReviewDriverMarker); window._driverReviewDriverMarker = null; } } catch(e){}
-                            try { if (window._driverReviewPickupMarker) { window.DRIVER_MAP.removeLayer(window._driverReviewPickupMarker); window._driverReviewPickupMarker = null; } } catch(e){}
-                            try { if (window._driverReviewDestMarker) { window.DRIVER_MAP.removeLayer(window._driverReviewDestMarker); window._driverReviewDestMarker = null; } } catch(e){}
-
+                            try { clearDriverReviewOverlays(); } catch(e) { console.warn('Failed to clear prior review overlays', e); }
 
                             // add route layer (pickup->destination)
                             window._driverReviewLayer = L.geoJSON(rd.features[0], { style: { color: '#007bff', weight: 5, opacity: 0.8 } }).addTo(window.DRIVER_MAP);
@@ -1739,8 +2139,6 @@
                                         if (dpRes.ok) {
                                             const dpData = await dpRes.json();
                                             if (dpData && dpData.features && dpData.features[0]) {
-                                                // remove previous driver->pickup layer if present
-                                                try { if (window._driverReviewDriverToPickupLayer) { window.DRIVER_MAP.removeLayer(window._driverReviewDriverToPickupLayer); window._driverReviewDriverToPickupLayer = null; } } catch(e){}
                                                 // draw solid green driver->pickup route (solid line - not dashed)
                                                 window._driverReviewDriverToPickupLayer = L.geoJSON(dpData.features[0], { style: { color: '#0b63d6', weight: 5, opacity: 0.8 } }).addTo(window.DRIVER_MAP);
                                                 try { const dpBounds = window._driverReviewDriverToPickupLayer.getBounds(); if (dpBounds) { window._driverReviewLayer.getBounds().extend(dpBounds); } } catch(e){}
@@ -1887,6 +2285,13 @@
         function getCookie(name){ let cookieValue = null; if (document.cookie && document.cookie !== '') { const cookies = document.cookie.split(';'); for (let i=0;i<cookies.length;i++){ const cookie = cookies[i].trim(); if (cookie.substring(0,name.length+1) === (name + '=')) { cookieValue = decodeURIComponent(cookie.substring(name.length+1)); break; } } } return cookieValue; }
         async function handleLocationUpdate(position) {
             const locationData = { lat: position.coords.latitude, lon: position.coords.longitude, accuracy: position.coords.accuracy, heading: position.coords.heading, speed: position.coords.speed };
+            try {
+                if (typeof window.updateDriverAvailabilityMarker === 'function') {
+                    window.updateDriverAvailabilityMarker({ lat: locationData.lat, lon: locationData.lon });
+                }
+            } catch (markerErr) {
+                console.warn('Availability marker forward failed', markerErr);
+            }
             try { await fetch('/api/driver/update_location/', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') }, body: JSON.stringify(locationData) }); } catch(e) { console.error('Error updating location:', e); }
         }
         function startLocationTracking(force){
