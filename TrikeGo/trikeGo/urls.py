@@ -30,18 +30,18 @@ urlpatterns = [
     path('accounts/', include('django.contrib.auth.urls')),
 
     # Your App URLs
-    path('booking/', include('booking.urls')),  # Handles all URLs starting with /booking/
-    path('', include('user.urls')),  # Handles user-related URLs like login, dashboards, etc.
+    path('booking/', include('booking_app.urls')),  # Handles all URLs starting with /booking/
+    path('', include('user_app.urls')),  # Handles user-related URLs like login, dashboards, etc.
     # Chat API and views
-    path('chat/', include('chat.urls')),
-    path('wallet/', include('wallet.urls')),
+    path('chat/', include('chat_app.urls')),
+    path('wallet/', include('wallet_app.urls')),
     # New focused apps
-    path('payments/', include('payments.urls')),
-    path('tracking/', include('tracking.urls')),
-    path('ratings/', include('ratings.urls')),
-    path('drivers/', include('drivers.urls')),
-    path('notifications/', include('notifications.urls')),
-    path('statistics/', include('driver_statistics.urls')),
+    path('payments/', include('payments_app.urls')),
+    path('tracking/', include('tracking_app.urls')),
+    path('ratings/', include('ratings_app.urls')),
+    path('drivers/', include('drivers_app.urls')),
+    path('notifications/', include('notifications_app.urls')),
+    path('statistics/', include('driver_statistics_app.urls')),
 ]
 
 # Development helper: serve static files directly from the `static/` dirs when

@@ -17,8 +17,8 @@ try:
 	# Channels-specific ASGI application setup
 	from channels.routing import ProtocolTypeRouter, URLRouter
 	from channels.auth import AuthMiddlewareStack
-	import booking.routing as booking_routing
-	import chat.routing as chat_routing
+	import booking_app.routing as booking_routing
+	import chat_app.routing as chat_routing
 
 	application = ProtocolTypeRouter({
 		"http": get_asgi_application(),

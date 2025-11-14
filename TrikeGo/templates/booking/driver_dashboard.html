@@ -11,7 +11,6 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
 </head>
 <body
-    {% if active_booking %}data-active-booking-id="{{ active_booking.id }}"{% endif %}
     data-ors-api-key="{{ settings.OPENROUTESERVICE_API_KEY }}"
     data-user-id="{{ user.id|default:'' }}"
     data-csrf-token="{{ csrf_token }}"
@@ -19,6 +18,9 @@
     data-complete-stop-endpoint="{% url 'booking:complete_itinerary_stop' %}"
     data-available-rides-endpoint="{% url 'drivers:available_rides_api' %}"
     data-accept-url-template="{% url 'drivers:accept_ride' 0 %}"
+    data-driver-status-endpoint="{% url 'drivers:driver_status' %}"
+    data-driver-status="{% if driver_profile and driver_profile.status %}{{ driver_profile.status }}{% else %}Offline{% endif %}"
+    data-active-trip="{% if active_booking %}1{% else %}0{% endif %}"
 >
     {# Compact driver dashboard: map fills main area; compact icon rail on the left; booking overlay pinned over map #}
 
@@ -300,6 +302,13 @@
                         <a id="support-icon" class="nav-icon" title="Support" href="#" aria-label="Support">
                             <img src="{% static 'user/images/support_icon.png' %}" alt="Support">
                         </a>
+                        <div id="driver-availability-control" class="availability-control">
+                            <button id="driver-availability-toggle" class="availability-toggle" type="button" aria-pressed="false" aria-describedby="driver-availability-status">
+                                <span class="availability-toggle__knob" aria-hidden="true"></span>
+                                <span class="visually-hidden">Toggle availability</span>
+                            </button>
+                            <span id="driver-availability-status" class="availability-control__label">Offline</span>
+                        </div>
                     </div>
 
                     <div class="sidebar-content closed">
@@ -332,12 +341,15 @@
             <div id="itinerary-summary" class="itinerary-summary">
                 <div class="itinerary-summary-header">
                     <span><span id="summary-status-text">UP NEXT</span>: (Stop <span id="summary-stop-num">0</span> of <span id="summary-stop-total">0</span>)</span>
-                    <button id="itinerary-expand-btn" type="button">View Full Itinerary</button>
+                    <button id="itinerary-expand-btn" type="button" aria-expanded="false">View Full Itinerary</button>
                     <button id="open-chat-btn" class="chat-btn" type="button" title="Open trip chat">Trip Chat</button>
                 </div>
                 <h3 id="summary-action-type">--</h3>
                 <p id="summary-address">Awaiting assignments.</p>
                 <p id="summary-meta" class="summary-meta text-muted" style="margin-bottom:12px;">&nbsp;</p>
+                <div class="summary-stats">
+                    <span class="summary-capacity">Capacity: <span id="summary-capacity">0 / 0</span> Seats</span>
+                </div>
                 <button id="summary-action-btn" class="btn btn-success" type="button" style="width: 100%;" disabled>Start</button>
             </div>
 
@@ -360,13 +372,13 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
-    <script src="{% static 'booking/js/driver_dashboard_config.js' %}"></script>
+    <script src="{% static 'booking/js/driver_dashboard_config.js' %}?v=2"></script>
     <script src="{% static 'booking/js/driver_panel_manager.js' %}"></script>
     <script src="{% static 'booking/js/driver_statistics_panel.js' %}?v=1"></script>
-    <script src="{% static 'booking/js/driver_dashboard.js' %}?v=10"></script>
+    <script src="{% static 'booking/js/driver_dashboard.js' %}?v=14"></script>
     <script src="{% static 'wallet/js/driver_wallet.js' %}?v=2"></script>
     <script src="{% static 'booking/js/driver_rides_panel.js' %}?v=1"></script>
-    <script src="{% static 'booking/js/trip_history.js' %}"></script>
+    <script src="{% static 'booking/js/trip_history.js' %}?v=2"></script>
 
     {# --- Push registration bootstrap --- #}
     <script src="{% static 'notifications/registerPush.js' %}"></script>

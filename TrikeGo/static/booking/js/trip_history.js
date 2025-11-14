@@ -8,6 +8,16 @@
     const walletPanel = document.getElementById('driver-wallet-panel');
     const ridesPanel = document.getElementById('driver-rides-panel');
     const statsPanel = document.getElementById('driver-statistics-panel');
+
+    const driverHistoryState = {
+        limit: 20,
+        offset: 0,
+        loading: false,
+        done: false,
+        initialized: false,
+        listEl: null,
+        endMessageShown: false,
+    };
     
     // Rider elements  
     const riderHistoryIcon = document.getElementById('rider-history-icon');
@@ -53,68 +63,184 @@
         const precision = numeric >= 100 ? 0 : 2;
         return `${numeric.toFixed(precision)} km`;
     }
+
+    function buildDriverTripCardMarkup(trip) {
+        const distanceDisplay = formatDistance(trip.distanceKm);
+        const fareNumeric = Number(trip.fare || 0);
+        const fareDisplay = fareNumeric.toFixed(2);
+        const needsPayment = trip.status === 'completed' && !trip.paymentVerified;
+        return `
+            <div class="driver-history-card">
+                <div class="driver-history-card__header">
+                    <span class="driver-history-card__title">Trip #${trip.id}</span>
+                    <span class="driver-history-card__date">${trip.date}</span>
+                </div>
+                <div class="driver-history-card__details">
+                    <div class="driver-history-card__row">
+                        <span class="driver-history-card__label">rider</span>
+                        <span class="driver-history-card__value">${trip.riderName}</span>
+                    </div>
+                    <div class="driver-history-card__row">
+                        <span class="driver-history-card__label">from:</span>
+                        <span class="driver-history-card__value">${trip.pickup}</span>
+                    </div>
+                    <div class="driver-history-card__row">
+                        <span class="driver-history-card__label">to:</span>
+                        <span class="driver-history-card__value">${trip.destination}</span>
+                    </div>
+                    ${distanceDisplay ? `
+                    <div class="driver-history-card__row">
+                        <span class="driver-history-card__label">distance:</span>
+                        <span class="driver-history-card__value">${distanceDisplay}</span>
+                    </div>` : ''}
+                </div>
+                <div class="driver-history-card__footer">
+                    <span class="driver-history-card__fare">₱${fareDisplay}</span>
+                    <div class="driver-history-card__badges">
+                        ${getStatusBadge(trip.status)}
+                        ${getPaymentBadge(trip.status, trip.paymentVerified)}
+                    </div>
+                </div>
+                ${needsPayment ? `
+                    <button class="driver-history-card__action" onclick="window.showPaymentPINModal(${trip.id}, ${fareNumeric})">
+                        Generate PIN to Verify Payment
+                    </button>
+                ` : ''}
+            </div>
+        `;
+    }
     
-    async function loadDriverTripHistory() {
-        historyList.innerHTML = '<p class="driver-history-panel__empty">Loading trip history...</p>';
+    async function loadDriverTripHistory(options = {}) {
+        if (!historyList) {
+            return;
+        }
+
+        const reset = Boolean(options.reset);
+
+        if (driverHistoryState.loading) {
+            return;
+        }
+
+        if (!reset && driverHistoryState.done) {
+            return;
+        }
+
+        if (reset) {
+            driverHistoryState.offset = 0;
+            driverHistoryState.done = false;
+            driverHistoryState.initialized = false;
+            driverHistoryState.listEl = null;
+            driverHistoryState.endMessageShown = false;
+            historyList.innerHTML = '';
+            historyList.scrollTop = 0;
+        }
+
+        driverHistoryState.loading = true;
+
+        const loader = document.createElement('p');
+        loader.className = 'driver-history-panel__empty';
+        loader.textContent = driverHistoryState.initialized ? 'Loading more trips...' : 'Loading trip history...';
+        loader.setAttribute('data-driver-history-loader', 'true');
+        historyList.appendChild(loader);
+
         try {
-            const response = await fetch('/api/driver/trip-history/');
+            const params = new URLSearchParams({
+                offset: String(driverHistoryState.offset),
+                limit: String(driverHistoryState.limit),
+            });
+            const response = await fetch(`/api/driver/trip-history/?${params.toString()}`);
+            if (!response.ok) {
+                throw new Error(`Status ${response.status}`);
+            }
             const data = await response.json();
-            if (data.status === 'success' && data.trips.length > 0) {
-                let html = '<div class="driver-history-card-list">';
-                data.trips.forEach(trip => {
-                    const needsPayment = trip.status === 'completed' && !trip.paymentVerified;
-                    const distanceDisplay = formatDistance(trip.distanceKm);
-                    html += `
-                        <div class="driver-history-card">
-                            <div class="driver-history-card__header">
-                                <span class="driver-history-card__title">Trip #${trip.id}</span>
-                                <span class="driver-history-card__date">${trip.date}</span>
-                            </div>
-                            <div class="driver-history-card__details">
-                                <div class="driver-history-card__row">
-                                    <span class="driver-history-card__label">rider</span>
-                                    <span class="driver-history-card__value">${trip.riderName}</span>
-                                </div>
-                                <div class="driver-history-card__row">
-                                    <span class="driver-history-card__label">from:</span>
-                                    <span class="driver-history-card__value">${trip.pickup}</span>
-                                </div>
-                                <div class="driver-history-card__row">
-                                    <span class="driver-history-card__label">to:</span>
-                                    <span class="driver-history-card__value">${trip.destination}</span>
-                                </div>
-                                ${distanceDisplay ? `
-                                <div class="driver-history-card__row">
-                                    <span class="driver-history-card__label">distance:</span>
-                                    <span class="driver-history-card__value">${distanceDisplay}</span>
-                                </div>` : ''}
-                            </div>
-                            <div class="driver-history-card__footer">
-                                <span class="driver-history-card__fare">₱${trip.fare.toFixed(2)}</span>
-                                <div class="driver-history-card__badges">
-                                    ${getStatusBadge(trip.status)}
-                                    ${getPaymentBadge(trip.status, trip.paymentVerified)}
-                                </div>
-                            </div>
-                            ${needsPayment ? `
-                                <button class="driver-history-card__action" onclick="window.showPaymentPINModal(${trip.id}, ${trip.fare})">
-                                    Generate PIN to Verify Payment
-                                </button>
-                            ` : ''}
-                        </div>
-                    `;
-                });
-                html += '</div>';
-                historyList.innerHTML = html;
-            } else {
+            if (data.status !== 'success') {
+                throw new Error(data.message || 'Trip history request failed.');
+            }
+
+            const trips = Array.isArray(data.trips) ? data.trips : [];
+
+            if (reset && trips.length === 0) {
                 historyList.innerHTML = '<p class="driver-history-panel__empty">No trip history yet</p>';
+                driverHistoryState.done = true;
+                driverHistoryState.initialized = true;
+                return;
+            }
+
+            if (!driverHistoryState.listEl && trips.length > 0) {
+                driverHistoryState.listEl = document.createElement('div');
+                driverHistoryState.listEl.className = 'driver-history-card-list';
+                historyList.insertBefore(driverHistoryState.listEl, loader);
+            }
+
+            if (driverHistoryState.listEl && trips.length > 0) {
+                let chunkHtml = '';
+                trips.forEach((trip) => {
+                    chunkHtml += buildDriverTripCardMarkup(trip);
+                });
+                driverHistoryState.listEl.insertAdjacentHTML('beforeend', chunkHtml);
+            }
+
+            const nextOffset = typeof data.nextOffset === 'number'
+                ? data.nextOffset
+                : driverHistoryState.offset + trips.length;
+            const hasMore = Boolean(data.hasMore);
+
+            driverHistoryState.offset = nextOffset;
+            driverHistoryState.done = !hasMore;
+            driverHistoryState.initialized = true;
+
+            if (driverHistoryState.done && driverHistoryState.listEl && driverHistoryState.listEl.children.length === 0 && !reset) {
+                historyList.innerHTML = '<p class="driver-history-panel__empty">No trip history yet</p>';
+            }
+
+            if (driverHistoryState.done && !driverHistoryState.endMessageShown && driverHistoryState.listEl && driverHistoryState.listEl.children.length > 0) {
+                const endNote = document.createElement('p');
+                endNote.className = 'driver-history-panel__empty';
+                endNote.setAttribute('data-history-end', 'true');
+                endNote.textContent = 'End of trip history';
+                historyList.appendChild(endNote);
+                driverHistoryState.endMessageShown = true;
             }
         } catch (error) {
             console.error('Error loading trip history:', error);
-            historyList.innerHTML = '<p class="driver-history-panel__empty" style="color:#c0392b;">Failed to load trips</p>';
+            if (driverHistoryState.listEl && driverHistoryState.listEl.children.length > 0) {
+                const errorNote = document.createElement('p');
+                errorNote.className = 'driver-history-panel__empty';
+                errorNote.style.color = '#c0392b';
+                errorNote.textContent = 'Failed to load more trips';
+                historyList.appendChild(errorNote);
+                setTimeout(() => {
+                    if (errorNote.isConnected) {
+                        errorNote.remove();
+                    }
+                }, 2400);
+            } else {
+                historyList.innerHTML = '<p class="driver-history-panel__empty" style="color:#c0392b;">Failed to load trips</p>';
+                driverHistoryState.listEl = null;
+                driverHistoryState.endMessageShown = false;
+            }
+        } finally {
+            driverHistoryState.loading = false;
+            if (loader && loader.isConnected) {
+                loader.remove();
+            }
         }
     }
     
+    function handleDriverHistoryScroll() {
+        if (!historyList || driverHistoryState.loading || driverHistoryState.done) {
+            return;
+        }
+        const remaining = historyList.scrollHeight - historyList.scrollTop - historyList.clientHeight;
+        if (remaining <= 120) {
+            loadDriverTripHistory();
+        }
+    }
+
+    if (historyList) {
+        historyList.addEventListener('scroll', handleDriverHistoryScroll);
+    }
+
     async function loadRiderTripHistory() {
         const riderHistoryList = document.getElementById('rider-history-list');
         if (!riderHistoryList) return;
@@ -229,7 +355,7 @@
             }
 
             showDriverHistoryPanelOverlay();
-            loadDriverTripHistory();
+            loadDriverTripHistory({ reset: true });
         });
     }
     

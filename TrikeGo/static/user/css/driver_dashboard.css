@@ -119,7 +119,32 @@ body {
 }
 /* layout for central icons area inside rail */
 .nav-center { flex: 1; display:flex; flex-direction:column; align-items:center; gap:12px; padding-top:8px; }
+.nav-center > .nav-icon:last-of-type { margin-bottom:4px; }
 .nav-center .nav-icon { display:block; margin:8px 0; }
+
+.nav-center .availability-control { width:100%; max-width:58px; display:flex; flex-direction:column; align-items:center; gap:6px; padding:8px 4px; border-radius:12px; background: rgba(255,255,255,0.08); box-sizing:border-box; transition: background-color 0.2s ease, box-shadow 0.2s ease; }
+.availability-control.is-online { background: rgba(40, 167, 69, 0.16); box-shadow: 0 0 0 1px rgba(40, 167, 69, 0.28); }
+.availability-control.is-intrip { background: rgba(255, 193, 7, 0.14); box-shadow: 0 0 0 1px rgba(255, 193, 7, 0.32); }
+.availability-control.is-offline { background: rgba(255,255,255,0.08); }
+
+.availability-toggle { position: relative; width: 46px; height: 26px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.38); background: rgba(15, 23, 36, 0.4); cursor: pointer; padding:0; transition: background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease; }
+.availability-toggle.is-online { background: rgba(40, 167, 69, 0.28); border-color: rgba(40, 167, 69, 0.62); }
+.availability-toggle.is-intrip { background: rgba(255, 193, 7, 0.28); border-color: rgba(255, 193, 7, 0.6); }
+.availability-toggle.is-offline { background: rgba(15, 23, 36, 0.4); border-color: rgba(255,255,255,0.28); }
+.availability-toggle.is-busy { cursor: wait; }
+
+.availability-toggle__knob { position:absolute; top:2px; left:2px; width:20px; height:20px; border-radius:50%; background:#fff; box-shadow:0 2px 6px rgba(0,0,0,0.3); transition: transform 0.2s ease, background-color 0.2s ease; }
+.availability-toggle.is-online .availability-toggle__knob,
+.availability-toggle.is-intrip .availability-toggle__knob { transform: translateX(18px); }
+.availability-toggle.is-online .availability-toggle__knob { background:#28a745; }
+.availability-toggle.is-intrip .availability-toggle__knob { background:#ffc107; }
+
+.availability-toggle:disabled { opacity:0.65; cursor: not-allowed; }
+
+.availability-control__label { font-size:10px; line-height:1.2; text-transform:uppercase; letter-spacing:0.08em; text-align:center; color: rgba(255,255,255,0.65); }
+.availability-control.is-online .availability-control__label { color:#7dffb1; }
+.availability-control.is-intrip .availability-control__label { color:#ffe09f; }
+.availability-control.is-offline .availability-control__label { color: rgba(255,255,255,0.58); }
 
 /* Slightly smaller icons in the compact rail for a cleaner look */
 .nav-center .nav-icon,
@@ -393,8 +418,8 @@ body {
   pointer-events: none;
   background: conic-gradient(rgba(255, 255, 255, 0.75) var(--sos-progress), rgba(255, 255, 255, 0) var(--sos-progress));
   transform: rotate(-90deg);
-  mask: radial-gradient(circle, transparent calc(50% - 12px), black calc(50% - 10px));
   -webkit-mask: radial-gradient(circle, transparent calc(50% - 12px), black calc(50% - 10px));
+  mask: radial-gradient(circle, transparent calc(50% - 12px), black calc(50% - 10px));
   transition: background 0.08s linear;
 }
 .sos-button__hint {
