@@ -118,7 +118,13 @@
             return;
         }
 
-        verifyBtn.disabled = true;
+        try {
+            if (window.singleClickHelper && typeof window.singleClickHelper.setLoading === 'function') {
+                window.singleClickHelper.setLoading(verifyBtn);
+            } else {
+                verifyBtn.disabled = true;
+            }
+        } catch (e) { verifyBtn.disabled = true; }
         errorMsg.style.display = 'none';
 
         try {
@@ -135,17 +141,27 @@
 
             if (response.ok && data.status === 'success') {
                 showSuccess();
+                try { verifyBtn.dispatchEvent(new CustomEvent('single-click-success', { bubbles: true })); } catch (e) {}
+                try { if (window.singleClickHelper && typeof window.singleClickHelper.clearLoading === 'function') { window.singleClickHelper.clearLoading(verifyBtn); verifyBtn.dataset.processing = 'false'; } } catch (e) {}
             } else {
                 showError(data.message || 'Invalid PIN');
                 setAttemptsRemaining(data.attempts_remaining);
                 pinInput.value = '';
                 pinInput.focus();
+                try { verifyBtn.dispatchEvent(new CustomEvent('single-click-error', { bubbles: true })); } catch (e) {}
+                try { if (window.singleClickHelper && typeof window.singleClickHelper.clearLoading === 'function') { window.singleClickHelper.clearLoading(verifyBtn); verifyBtn.dataset.processing = 'false'; } } catch (e) {}
             }
         } catch (error) {
             console.error('Error verifying PIN:', error);
             showError('Failed to verify PIN');
+            try { verifyBtn.dispatchEvent(new CustomEvent('single-click-error', { bubbles: true })); } catch (e) {}
+            try { if (window.singleClickHelper && typeof window.singleClickHelper.clearLoading === 'function') { window.singleClickHelper.clearLoading(verifyBtn); verifyBtn.dataset.processing = 'false'; } } catch (e) {}
         } finally {
-            verifyBtn.disabled = false;
+            try {
+                if (!(window.singleClickHelper && typeof window.singleClickHelper.setLoading === 'function')) {
+                    verifyBtn.disabled = false;
+                }
+            } catch (e) { verifyBtn.disabled = false; }
         }
     }
 

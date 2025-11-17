@@ -236,7 +236,14 @@
                 return;
             }
 
-            this.verifyButton?.setAttribute('disabled', 'disabled');
+            try {
+                if (this.verifyButton && window.singleClickHelper && typeof window.singleClickHelper.setLoading === 'function') {
+                    try { window.singleClickHelper.setLoading(this.verifyButton); } catch (err) {}
+                    try { this.verifyButton.dataset.processing = 'true'; } catch (err) {}
+                } else {
+                    this.verifyButton?.setAttribute('disabled', 'disabled');
+                }
+            } catch (e) { this.verifyButton?.setAttribute('disabled', 'disabled'); }
             hide(this.errorContainer);
 
             try {
@@ -262,8 +269,9 @@
             } catch (error) {
                 console.error('Error verifying rider PIN:', error);
                 this.showError('Network error. Please try again.');
+                try { if (this.verifyButton && window.singleClickHelper && typeof window.singleClickHelper.clearLoading === 'function') { window.singleClickHelper.clearLoading(this.verifyButton); this.verifyButton.dataset.processing = 'false'; } } catch (err) {}
             } finally {
-                this.verifyButton?.removeAttribute('disabled');
+                try { if (!(this.verifyButton && window.singleClickHelper && typeof window.singleClickHelper.setLoading === 'function')) { this.verifyButton?.removeAttribute('disabled'); } } catch (err) { this.verifyButton?.removeAttribute('disabled'); }
             }
         }
 

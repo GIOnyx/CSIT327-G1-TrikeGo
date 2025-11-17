@@ -1390,4 +1390,34 @@ try {
                     });
                 }
             } catch (e) { console.warn('Chat button wiring failed', e); }
+            // Ensure the booking form's submit button shows loading so the user
+            // knows the request is in progress (prevents accidental double
+            // submissions and avoids the button reverting to text before the
+            // server/UI update is reflected).
+            try {
+                const bookingForm = document.querySelector('.booking-form');
+                if (bookingForm) {
+                    bookingForm.addEventListener('submit', function (ev) {
+                        // find the primary submit button inside the form
+                        const submitBtn = bookingForm.querySelector('button[type="submit"]');
+                        if (!submitBtn) return;
+                        try {
+                            if (window.singleClickHelper && typeof window.singleClickHelper.setLoading === 'function') {
+                                window.singleClickHelper.setLoading(submitBtn);
+                                // If the form ultimately does not cause navigation (e.g.
+                                // server returns the same page with errors), clear the
+                                // loading state after a reasonable timeout so the UI
+                                // doesn't remain stuck permanently.
+                                setTimeout(() => {
+                                    try { if (window.singleClickHelper && typeof window.singleClickHelper.clearLoading === 'function') window.singleClickHelper.clearLoading(submitBtn); } catch (e) {}
+                                }, 30000);
+                            } else {
+                                submitBtn.disabled = true;
+                            }
+                        } catch (e) {
+                            submitBtn.disabled = true;
+                        }
+                    });
+                }
+            } catch (e) { /* non-critical */ }
 })();

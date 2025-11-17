@@ -207,7 +207,7 @@
             return;
         }
         setDriverAvailabilityBusy(true);
-        const csrf = (cfg.csrfToken && cfg.csrfToken !== 'NOTPROVIDED') ? cfg.csrfToken : getCookie('csrftoken');
+            const csrf = getCookie('csrftoken');
         if (!csrf) {
             console.warn('Driver status update missing CSRF token; request may be rejected.');
         }
@@ -582,7 +582,15 @@
     }
     async function handleAcceptRide(form) {
         const submitBtn = form.querySelector('button[type="submit"]');
-        if (submitBtn) submitBtn.disabled = true;
+        if (submitBtn) {
+            try {
+                if (window.singleClickHelper && typeof window.singleClickHelper.setLoading === 'function') {
+                    window.singleClickHelper.setLoading(submitBtn);
+                } else {
+                    submitBtn.disabled = true;
+                }
+            } catch (e) { submitBtn.disabled = true; }
+        }
 
         const csrf = cfg.csrfToken || (function getCSRFTokenFromCookie() {
             const name = 'csrftoken';
@@ -678,10 +686,30 @@
                 console.warn('Unable to close rides panel after accept', panelErr);
             }
 
-            if (submitBtn) submitBtn.disabled = false;
+            if (submitBtn) {
+                try { submitBtn.dispatchEvent(new CustomEvent('single-click-success', { bubbles: true })); } catch (e) {}
+                try {
+                    if (window.singleClickHelper && typeof window.singleClickHelper.clearLoading === 'function') {
+                        window.singleClickHelper.clearLoading(submitBtn);
+                        submitBtn.dataset.processing = 'false';
+                    } else {
+                        submitBtn.disabled = false;
+                    }
+                } catch (e) { try { submitBtn.disabled = false; } catch (e) {} }
+            }
         } catch (err) {
             console.warn('Accept request failed', err);
-            if (submitBtn) submitBtn.disabled = false;
+            if (submitBtn) {
+                try { submitBtn.dispatchEvent(new CustomEvent('single-click-error', { bubbles: true })); } catch (e) {}
+                try {
+                    if (window.singleClickHelper && typeof window.singleClickHelper.clearLoading === 'function') {
+                        window.singleClickHelper.clearLoading(submitBtn);
+                        submitBtn.dataset.processing = 'false';
+                    } else {
+                        submitBtn.disabled = false;
+                    }
+                } catch (e) { try { submitBtn.disabled = false; } catch (e) {} }
+            }
             alert('Network error while accepting ride.');
         }
     }
@@ -946,7 +974,7 @@
                 </div>
                 <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
                     <div class="fare">${escapeHtml(fareText)}</div>
-                    <button class="btn btn-sm btn-danger cancel-booking-btn" data-booking-id="${escapeHtml(String(bookingId))}" style="font-size:11px;padding:4px 8px;">Cancel</button>
+                    <button data-single-click class="btn btn-sm btn-danger cancel-booking-btn" data-booking-id="${escapeHtml(String(bookingId))}" style="font-size:11px;padding:4px 8px;">Cancel</button>
                 </div>
             `;
 
@@ -962,11 +990,16 @@
                 e.preventDefault();
                 const bookingId = this.getAttribute('data-booking-id');
                 if (!bookingId || !confirm(`Cancel booking #${bookingId}?`)) return;
-                
+                const el = this;
                 try {
-                    this.disabled = true;
-                    this.textContent = 'Cancelling...';
-                    
+                    if (window.singleClickHelper && typeof window.singleClickHelper.setLoading === 'function') {
+                        try { window.singleClickHelper.setLoading(el); } catch (err) {}
+                        try { el.dataset.processing = 'true'; } catch (err) {}
+                    } else {
+                        el.disabled = true;
+                        el.textContent = 'Cancelling...';
+                    }
+
                     const response = await fetch(`/booking/${bookingId}/cancel/`, {
                         method: 'POST',
                         headers: {
@@ -975,21 +1008,43 @@
                         },
                         credentials: 'same-origin'
                     });
-                    
+
                     if (response.ok) {
+                        // Refresh itinerary and wait for UI update before clearing
+                        // the loading state so the button stays loading until
+                        // changes are visible to the user.
+                        if (typeof fetchItineraryData === 'function') {
+                            try { await fetchItineraryData(); } catch (e) { /* ignore */ }
+                        }
+                        if (window.singleClickHelper && typeof window.singleClickHelper.clearLoading === 'function') {
+                            try { window.singleClickHelper.clearLoading(el); } catch (err) {}
+                            try { el.dataset.processing = 'false'; } catch (err) {}
+                        } else {
+                            el.disabled = false;
+                            el.textContent = 'Cancel';
+                        }
                         alert('Booking cancelled successfully');
-                        fetchItineraryData(); // Refresh the itinerary
                     } else {
                         const errorText = await response.text();
                         alert(`Failed to cancel: ${errorText}`);
-                        this.disabled = false;
-                        this.textContent = 'Cancel';
+                        if (window.singleClickHelper && typeof window.singleClickHelper.clearLoading === 'function') {
+                            try { window.singleClickHelper.clearLoading(el); } catch (err) {}
+                            try { el.dataset.processing = 'false'; } catch (err) {}
+                        } else {
+                            el.disabled = false;
+                            el.textContent = 'Cancel';
+                        }
                     }
                 } catch (err) {
                     console.error('Cancel booking error:', err);
                     alert('Failed to cancel booking');
-                    this.disabled = false;
-                    this.textContent = 'Cancel';
+                    if (window.singleClickHelper && typeof window.singleClickHelper.clearLoading === 'function') {
+                        try { window.singleClickHelper.clearLoading(el); } catch (err) {}
+                        try { el.dataset.processing = 'false'; } catch (err) {}
+                    } else {
+                        el.disabled = false;
+                        el.textContent = 'Cancel';
+                    }
                 }
             });
         });
@@ -1769,7 +1824,13 @@
                     }
                 }
             } else {
-                fetchItineraryData();
+                // Ensure we wait for the itinerary refresh to finish before
+                // resolving — otherwise callers may clear loading while the
+                // UI is still updating, causing the button to revert to text
+                // though changes aren't visible yet.
+                if (typeof fetchItineraryData === 'function') {
+                    await fetchItineraryData();
+                }
             }
         } catch (err) {
             console.warn('Failed to complete stop', err);
@@ -1781,9 +1842,36 @@
         if (!itineraryDom.summaryActionBtn || !itineraryData) return;
         const stopId = itineraryDom.summaryActionBtn.getAttribute('data-stop-id');
         if (!stopId) return;
-        itineraryDom.summaryActionBtn.disabled = true;
-        completeItineraryStop(stopId).finally(() => {
-            itineraryDom.summaryActionBtn.disabled = false;
+        const btn = itineraryDom.summaryActionBtn;
+        try {
+            if (window.singleClickHelper && typeof window.singleClickHelper.setLoading === 'function') {
+                window.singleClickHelper.setLoading(btn);
+            } else {
+                btn.disabled = true;
+            }
+        } catch (e) {
+            btn.disabled = true;
+        }
+
+        completeItineraryStop(stopId).then(() => {
+            // dispatch success so helper can clear loading
+            try { btn.dispatchEvent(new CustomEvent('single-click-success', { bubbles: true })); } catch (e) {}
+            try {
+                if (window.singleClickHelper && typeof window.singleClickHelper.clearLoading === 'function') {
+                    window.singleClickHelper.clearLoading(btn);
+                    btn.dataset.processing = 'false';
+                }
+            } catch (e) {}
+        }).catch(() => {
+            try { btn.dispatchEvent(new CustomEvent('single-click-error', { bubbles: true })); } catch (e) {}
+            try {
+                if (window.singleClickHelper && typeof window.singleClickHelper.clearLoading === 'function') {
+                    window.singleClickHelper.clearLoading(btn);
+                    btn.dataset.processing = 'false';
+                }
+            } catch (e) {}
+        }).finally(() => {
+            try { if (!window.singleClickHelper) btn.disabled = false; } catch (e) {}
         });
     }
 
@@ -2231,7 +2319,14 @@
                     // simple getCookie utility
                     function getCookie(name){ let cookieValue = null; if (document.cookie && document.cookie !== '') { const cookies = document.cookie.split(';'); for (let i=0;i<cookies.length;i++){ const cookie = cookies[i].trim(); if (cookie.substring(0, name.length+1) === (name + '=')) { cookieValue = decodeURIComponent(cookie.substring(name.length+1)); break; } } } return cookieValue; }
                     const csrf = getCookie('csrftoken');
-                    cb.disabled = true;
+                    try {
+                        if (window.singleClickHelper && typeof window.singleClickHelper.setLoading === 'function') {
+                            try { window.singleClickHelper.setLoading(cb); } catch (err) {}
+                            try { cb.dataset.processing = 'true'; } catch (err) {}
+                        } else {
+                            cb.disabled = true;
+                        }
+                    } catch (e) { cb.disabled = true; }
                     fetch(url, {
                         method: 'POST',
                         credentials: 'same-origin',
@@ -2253,16 +2348,20 @@
                             if (cb.closest('.driver-ride-card')) {
                                 cb.closest('.driver-ride-card').remove();
                             }
-                            cb.disabled = false;
+                            // Refresh itinerary and wait for UI update before
+                            // clearing the loading/disabled state so the user sees
+                            // the final state that matches the server.
                             if (typeof fetchItineraryData === 'function') {
-                                fetchItineraryData();
+                                await fetchItineraryData();
                             }
+                            try { if (window.singleClickHelper && typeof window.singleClickHelper.clearLoading === 'function') { window.singleClickHelper.clearLoading(cb); cb.dataset.processing = 'false'; } } catch (err) {}
                         } else {
+                            try { if (window.singleClickHelper && typeof window.singleClickHelper.clearLoading === 'function') { window.singleClickHelper.clearLoading(cb); cb.dataset.processing = 'false'; } } catch (err) {}
                             cb.disabled = false;
                             const errMsg = (payload && payload.message) ? payload.message : (res.statusText || 'Unable to cancel booking');
                             alert('Cancel failed: ' + errMsg);
                         }
-                    }).catch(err => { cb.disabled = false; alert('Network error when cancelling'); console.warn(err); });
+                    }).catch(err => { try { if (window.singleClickHelper && typeof window.singleClickHelper.clearLoading === 'function') { window.singleClickHelper.clearLoading(cb); cb.dataset.processing = 'false'; } } catch (err) {} cb.disabled = false; alert('Network error when cancelling'); console.warn(err); });
                 } catch(err) { console.warn('cancel handler', err); }
             });
 
@@ -2384,18 +2483,24 @@
                 console.error('No booking ID set for PIN generation');
                 return;
             }
-            
+
             // Prevent duplicate generation
             if (isGenerating) {
                 console.warn('PIN generation already in progress, ignoring duplicate request');
                 return;
             }
-            
+
             isGenerating = true;
-            generateBtn.disabled = true;
-            console.log('🔑 GENERATING PIN for booking:', currentBookingId);
-            
+            const el = generateBtn;
             try {
+                if (window.singleClickHelper && typeof window.singleClickHelper.setLoading === 'function') {
+                    try { window.singleClickHelper.setLoading(el); } catch (err) {}
+                    try { el.dataset.processing = 'true'; } catch (err) {}
+                } else {
+                    el.disabled = true;
+                }
+                console.log('🔑 GENERATING PIN for booking:', currentBookingId);
+
                 const response = await fetch(`/booking/api/${currentBookingId}/payment/generate-pin/`, {
                     method: 'POST',
                     headers: {
@@ -2403,27 +2508,32 @@
                         'X-CSRFToken': getCookie('csrftoken')
                     }
                 });
-                
+
                 const data = await response.json();
                 console.log('📦 PIN generation response:', data);
                 console.log('📊 Response status:', response.status, 'OK:', response.ok);
-                
+
                 if (response.ok && data.status === 'success') {
                     // Show PIN
                     pinDisplay.textContent = data.pin;
                     pinGenerationSection.style.display = 'none';
                     pinDisplaySection.style.display = 'block';
-                    
+
                     console.log('✅ PIN generated successfully:', data.pin, 'for booking:', currentBookingId);
-                    
-                    // Re-enable button and reset flag on success
+
+                    // Clear loading and reset flag on success
                     isGenerating = false;
-                    generateBtn.disabled = false;
-                    
+                    if (window.singleClickHelper && typeof window.singleClickHelper.clearLoading === 'function') {
+                        try { window.singleClickHelper.clearLoading(el); } catch (err) {}
+                        try { el.dataset.processing = 'false'; } catch (err) {}
+                    } else {
+                        el.disabled = false;
+                    }
+
                     // Start countdown
                     const expiresAt = new Date(data.expires_at);
                     startCountdown(expiresAt);
-                    
+
                     // Poll for verification
                     startPollingForVerification();
                 } else {
@@ -2431,13 +2541,23 @@
                     console.error('❌ Status:', data.status, 'Message:', data.message);
                     alert(data.message || 'Failed to generate PIN');
                     isGenerating = false; // Reset flag on error
-                    generateBtn.disabled = false;
+                    if (window.singleClickHelper && typeof window.singleClickHelper.clearLoading === 'function') {
+                        try { window.singleClickHelper.clearLoading(el); } catch (err) {}
+                        try { el.dataset.processing = 'false'; } catch (err) {}
+                    } else {
+                        el.disabled = false;
+                    }
                 }
             } catch (error) {
                 console.error('💥 Error generating PIN:', error);
                 alert('Failed to generate PIN. Please try again.');
                 isGenerating = false; // Reset flag on error
-                generateBtn.disabled = false;
+                if (window.singleClickHelper && typeof window.singleClickHelper.clearLoading === 'function') {
+                    try { window.singleClickHelper.clearLoading(el); } catch (err) {}
+                    try { el.dataset.processing = 'false'; } catch (err) {}
+                } else {
+                    el.disabled = false;
+                }
             }
         });
         

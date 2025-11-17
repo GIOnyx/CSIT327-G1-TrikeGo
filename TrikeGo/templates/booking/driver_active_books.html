@@ -51,7 +51,7 @@
                                     <p><strong>💰 Cash Payment Verification</strong></p>
                                     <p class="text-muted">Generate a PIN to confirm cash payment</p>
                                 </div>
-                                <button type="button" class="btn btn-primary generate-pin-btn" data-booking-id="{{ booking.id }}">
+                                <button type="button" class="btn btn-primary generate-pin-btn" data-booking-id="{{ booking.id }}" data-single-click>
                                     🔑 Generate Payment PIN
                                 </button>
                             </div>
@@ -66,7 +66,7 @@
                                         ⏱️ Expires in: <span class="pin-countdown" id="countdown-{{ booking.id }}">5:00</span>
                                     </p>
                                     <p class="text-muted">Waiting for rider to confirm...</p>
-                                    <button type="button" class="btn btn-sm btn-secondary regenerate-pin-btn" data-booking-id="{{ booking.id }}">
+                                    <button type="button" class="btn btn-sm btn-secondary regenerate-pin-btn" data-booking-id="{{ booking.id }}" data-single-click>
                                         🔄 Regenerate PIN
                                     </button>
                                 </div>
@@ -92,7 +92,7 @@
                         <!-- For bookings that are still in progress -->
                         <form method="POST" action="{% url 'drivers:cancel_accepted_booking' booking.id %}">
                             {% csrf_token %}
-                            <button type="submit" class="btn btn-danger">Cancel Booking</button>
+                            <button type="submit" class="btn btn-danger" data-single-click>Cancel Booking</button>
                         </form>
                         {% endif %}
                     </div>
@@ -106,6 +106,7 @@
 
     <!-- UPDATED SCRIPT FOR LOCATION TRACKING -->
     <script src="{% static 'booking/js/driver_location_permission.js' %}"></script>
+    <script src="{% static 'user/js/single_click_helper.js' %}"></script>
     <!-- Payment PIN Verification Script -->
     <script src="{% static 'booking/js/driver_payment_pin.js' %}"></script>
 </body>

@@ -72,6 +72,15 @@
         form.addEventListener('submit', async (event) => {
             event.preventDefault();
 
+            const submitBtn = form.querySelector('button[type="submit"]');
+            try {
+                if (submitBtn && window.singleClickHelper && typeof window.singleClickHelper.setLoading === 'function') {
+                    window.singleClickHelper.setLoading(submitBtn);
+                } else if (submitBtn) {
+                    submitBtn.disabled = true;
+                }
+            } catch (e) { if (submitBtn) submitBtn.disabled = true; }
+
             const formData = new FormData(form);
             const csrfToken = getCsrfToken(form);
 
@@ -97,13 +106,40 @@
                         setTimeout(() => successBanner.remove(), 350);
                     }, 4000);
                     document.dispatchEvent(new CustomEvent('rider:ratingSubmitted', { detail: payload }));
+                    if (submitBtn) {
+                        try { submitBtn.dispatchEvent(new CustomEvent('single-click-success', { bubbles: true })); } catch (e) {}
+                        try {
+                            if (window.singleClickHelper && typeof window.singleClickHelper.clearLoading === 'function') {
+                                window.singleClickHelper.clearLoading(submitBtn);
+                                submitBtn.dataset.processing = 'false';
+                            }
+                        } catch (e) {}
+                    }
                 } else {
                     alert('Error submitting rating. Please check all fields.');
                     console.error('Rating submission failed:', payload);
+                    if (submitBtn) {
+                        try { submitBtn.dispatchEvent(new CustomEvent('single-click-error', { bubbles: true })); } catch (e) {}
+                        try {
+                            if (window.singleClickHelper && typeof window.singleClickHelper.clearLoading === 'function') {
+                                window.singleClickHelper.clearLoading(submitBtn);
+                                submitBtn.dataset.processing = 'false';
+                            }
+                        } catch (e) {}
+                    }
                 }
             } catch (error) {
                 console.error('Network or system error:', error);
                 alert('A network error occurred. Please try again.');
+                if (submitBtn) {
+                    try { submitBtn.dispatchEvent(new CustomEvent('single-click-error', { bubbles: true })); } catch (e) {}
+                    try {
+                        if (window.singleClickHelper && typeof window.singleClickHelper.clearLoading === 'function') {
+                            window.singleClickHelper.clearLoading(submitBtn);
+                            submitBtn.dataset.processing = 'false';
+                        }
+                    } catch (e) {}
+                }
             }
         });
     });

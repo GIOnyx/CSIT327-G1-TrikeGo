@@ -257,17 +257,68 @@ document.addEventListener('DOMContentLoaded', function() {
         // Attach event listeners for generate button
         const generateBtn = section.querySelector('.generate-pin-btn');
         if (generateBtn) {
-            generateBtn.addEventListener('click', () => {
-                instance.generatePIN();
+            generateBtn.addEventListener('click', async function() {
+                const el = generateBtn;
+                if (instance && typeof instance.generatePIN === 'function') {
+                    try {
+                        if (window.singleClickHelper && typeof window.singleClickHelper.setLoading === 'function') {
+                            try { window.singleClickHelper.setLoading(el); } catch (err) {}
+                            try { el.dataset.processing = 'true'; } catch (err) {}
+                        } else {
+                            el.disabled = true;
+                        }
+                    } catch (e) { el.disabled = true; }
+
+                    try {
+                        await instance.generatePIN();
+                        if (window.singleClickHelper && typeof window.singleClickHelper.clearLoading === 'function') {
+                            try { window.singleClickHelper.clearLoading(el); } catch (err) {}
+                            try { el.dataset.processing = 'false'; } catch (err) {}
+                        } else {
+                            el.disabled = false;
+                        }
+                    } catch (err) {
+                        if (window.singleClickHelper && typeof window.singleClickHelper.clearLoading === 'function') {
+                            try { window.singleClickHelper.clearLoading(el); } catch (err) {}
+                            try { el.dataset.processing = 'false'; } catch (err) {}
+                        } else {
+                            el.disabled = false;
+                        }
+                    }
+                }
             });
         }
         
         // Attach event listener for regenerate button
         const regenerateBtn = section.querySelector('.regenerate-pin-btn');
         if (regenerateBtn) {
-            regenerateBtn.addEventListener('click', () => {
-                if (confirm('Generate a new PIN? The current PIN will be invalidated.')) {
-                    instance.generatePIN();
+            regenerateBtn.addEventListener('click', async function() {
+                const el = regenerateBtn;
+                if (!confirm('Generate a new PIN? The current PIN will be invalidated.')) return;
+                try {
+                    if (window.singleClickHelper && typeof window.singleClickHelper.setLoading === 'function') {
+                        try { window.singleClickHelper.setLoading(el); } catch (err) {}
+                        try { el.dataset.processing = 'true'; } catch (err) {}
+                    } else {
+                        el.disabled = true;
+                    }
+                } catch (e) { el.disabled = true; }
+
+                try {
+                    await instance.generatePIN();
+                    if (window.singleClickHelper && typeof window.singleClickHelper.clearLoading === 'function') {
+                        try { window.singleClickHelper.clearLoading(el); } catch (err) {}
+                        try { el.dataset.processing = 'false'; } catch (err) {}
+                    } else {
+                        el.disabled = false;
+                    }
+                } catch (err) {
+                    if (window.singleClickHelper && typeof window.singleClickHelper.clearLoading === 'function') {
+                        try { window.singleClickHelper.clearLoading(el); } catch (err) {}
+                        try { el.dataset.processing = 'false'; } catch (err) {}
+                    } else {
+                        el.disabled = false;
+                    }
                 }
             });
         }
