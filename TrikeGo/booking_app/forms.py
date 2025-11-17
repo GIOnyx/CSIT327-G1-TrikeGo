@@ -123,7 +123,7 @@ class RatingForm(forms.ModelForm):
     rating_value = forms.ChoiceField(
         choices=RatingAndFeedback.RATING_CHOICES,
         widget=forms.RadioSelect(attrs={'class': 'rating-star-radio'}),
-        initial=5,
+        # No initial selection so stars are outlined until user chooses
         label='How would you rate your driver?'
     )
 

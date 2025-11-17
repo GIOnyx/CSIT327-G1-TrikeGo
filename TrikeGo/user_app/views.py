@@ -17,6 +17,9 @@ from booking_app.forms import BookingForm
 from ratings_app.forms import RatingForm
 from datetime import date, timedelta
 from booking_app.models import Booking, DriverLocation
+from django.core.paginator import Paginator
+from datetime import datetime
+from django.db.models import Q
 import json
 from django.http import JsonResponse
 from django.core.cache import cache
@@ -445,11 +448,120 @@ class AdminDashboard(View):
         if not request.user.is_authenticated or getattr(request.user, 'trikego_user', None) != 'A':
             return redirect('user:landing')
 
+        # Include trips (bookings) for admin overview. Order by most recent bookings.
+        trips_qs = Booking.objects.select_related('driver', 'rider').order_by('-booking_time')
+
+        # Apply simple filters from query params (status, driver username, date range)
+        status_filter = request.GET.get('status')
+        driver_filter = request.GET.get('driver')
+        date_from = request.GET.get('date_from')
+        date_to = request.GET.get('date_to')
+
+        if status_filter:
+            trips_qs = trips_qs.filter(status=status_filter)
+
+        if driver_filter:
+            trips_qs = trips_qs.filter(driver__username__icontains=driver_filter)
+
+        # Parse dates in YYYY-MM-DD format (simple best-effort)
+        try:
+            if date_from:
+                df = datetime.strptime(date_from, '%Y-%m-%d').date()
+                trips_qs = trips_qs.filter(booking_time__date__gte=df)
+            if date_to:
+                dt = datetime.strptime(date_to, '%Y-%m-%d').date()
+                trips_qs = trips_qs.filter(booking_time__date__lte=dt)
+        except Exception:
+            # ignore parse errors and show unfiltered range
+            pass
+
+        # Pagination
+        per_page = 25
+        page_number = request.GET.get('page', 1)
+        paginator = Paginator(trips_qs, per_page)
+        page_obj = paginator.get_page(page_number)
+
+        # Drivers list with filters, sorting and pagination
+        drivers_qs = Driver.objects.select_related('user').all()
+        d_search = request.GET.get('d_search')
+        d_status = request.GET.get('d_status')
+        d_verified = request.GET.get('d_verified')
+        d_sort = request.GET.get('d_sort')
+        d_order = request.GET.get('d_order', 'desc')
+
+        if d_search:
+            drivers_qs = drivers_qs.filter(
+                Q(user__first_name__icontains=d_search) |
+                Q(user__last_name__icontains=d_search) |
+                Q(user__username__icontains=d_search)
+            )
+        if d_status:
+            drivers_qs = drivers_qs.filter(status=d_status)
+        if d_verified in ('true', 'false'):
+            drivers_qs = drivers_qs.filter(is_verified=(d_verified == 'true'))
+
+        # sorting
+        if d_sort:
+            order_field = {
+                'name': 'user__first_name',
+                'username': 'user__username',
+                'date_hired': 'date_hired',
+                'status': 'status',
+            }.get(d_sort, 'user__username')
+            if d_order == 'desc':
+                order_field = '-' + order_field
+            drivers_qs = drivers_qs.order_by(order_field)
+        else:
+            drivers_qs = drivers_qs.order_by('-date_hired')
+
+        drivers_paginator = Paginator(drivers_qs, per_page)
+        drivers_page = drivers_paginator.get_page(request.GET.get('page_drivers', 1))
+
+        # Riders list with filters, sorting and pagination
+        riders_qs = Rider.objects.select_related('user').all()
+        r_search = request.GET.get('r_search')
+        r_status = request.GET.get('r_status')
+        r_sort = request.GET.get('r_sort')
+        r_order = request.GET.get('r_order', 'desc')
+
+        if r_search:
+            riders_qs = riders_qs.filter(
+                Q(user__first_name__icontains=r_search) |
+                Q(user__last_name__icontains=r_search) |
+                Q(user__username__icontains=r_search) |
+                Q(user__email__icontains=r_search)
+            )
+        if r_status:
+            riders_qs = riders_qs.filter(status=r_status)
+
+        if r_sort:
+            r_order_field = {
+                'name': 'user__first_name',
+                'username': 'user__username',
+                'loyalty': 'loyalty_points',
+                'status': 'status',
+            }.get(r_sort, 'user__username')
+            if r_order == 'desc':
+                r_order_field = '-' + r_order_field
+            riders_qs = riders_qs.order_by(r_order_field)
+        else:
+            riders_qs = riders_qs.order_by('-user__date_joined')
+
+        riders_paginator = Paginator(riders_qs, per_page)
+        riders_page = riders_paginator.get_page(request.GET.get('page_riders', 1))
+
         context = {
-            "drivers": Driver.objects.select_related("user").all(),
-            "riders": Rider.objects.select_related("user").all(),
+            "drivers_page": drivers_page,
+            "riders_page": riders_page,
             "users": CustomUser.objects.all(),
             "verification_form": DriverVerificationForm(),
+            "trips_page": page_obj,
+            # expose current filters so template can keep form values
+            'filter_status': status_filter or '',
+            'filter_driver': driver_filter or '',
+            'filter_date_from': date_from or '',
+            'filter_date_to': date_to or '',
+            'active_tab': request.GET.get('tab', 'drivers'),
         }
         return render(request, self.template_name, context)
 
