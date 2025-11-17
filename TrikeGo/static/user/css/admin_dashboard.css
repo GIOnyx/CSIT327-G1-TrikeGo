@@ -13,23 +13,62 @@ body {
 
 /* Header */
 .admin-header {
-  background: linear-gradient(135deg, #0078d7, #005a9e);
+  background: linear-gradient(135deg, #0f2341, #1a3a5f);
   color: #fff;
-  padding: 1.5rem 2rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  padding: 1.25rem 1.5rem;
   box-shadow: 0 2px 6px rgba(0,0,0,0.15);
 }
 
-.admin-header h1 {
-  font-size: 1.8rem;
-  font-weight: 600;
+.admin-header-inner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
-.admin-header p {
-  font-size: 1rem;
-  opacity: 0.9;
+.brand h1 {
+  font-size: 1.6rem;
+  margin: 0 0 0.25rem 0;
+  font-weight: 700;
+}
+
+.brand .sub {
+  margin: 0;
+  font-size: 0.95rem;
+  opacity: 0.95;
+}
+
+.admin-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.logout-form {
+  margin: 0;
+}
+
+.logout-btn {
+  background-color: #d9534f;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border-radius: 6px;
+}
+
+.btn.btn-sm.btn-outline-danger {
+  background: transparent;
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.25);
+  padding: 0.35rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.btn.btn-sm.btn-outline-danger:hover {
+  background: rgba(255,255,255,0.06);
 }
 
 /* Main content */
@@ -51,10 +90,95 @@ body {
 .dashboard-section h2 {
   margin-bottom: 1rem;
   font-size: 1.4rem;
-  color: #005a9e;
+  color: #1a3a5f;
   border-bottom: 2px solid #e0e0e0;
   padding-bottom: 0.5rem;
 }
+
+/* Filters and pagination */
+.trips-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.trips-filters label {
+  font-size: 0.9rem;
+  color: #222;
+}
+
+.trips-filters input[type="text"], .trips-filters select, .trips-filters input[type="date"] {
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid #d0d7de;
+}
+
+.trips-filters button {
+  padding: 0.45rem 0.7rem;
+  border-radius: 6px;
+}
+
+.pagination {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  align-items: center;
+  margin-top: 1rem;
+}
+
+.pagination a {
+  padding: 0.4rem 0.7rem;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  color: #1a3a5f;
+  border-radius: 6px;
+  text-decoration: none;
+}
+
+.pagination .disabled {
+  padding: 0.4rem 0.7rem;
+  color: #999;
+}
+
+.pagination .page-info {
+  color: #444;
+  font-weight: 600;
+}
+
+/* Tabs */
+
+.tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin: 1rem 0 0.75rem 0;
+}
+
+/* Improved tab contrast: default (inactive) uses muted text on light background; active tab uses white card with accent color */
+.tab-link {
+  padding: 0.5rem 0.9rem;
+  background: transparent;
+  color: #374151; /* neutral dark */
+  border-radius: 8px;
+  text-decoration: none;
+  border: 1px solid transparent;
+}
+
+.tab-link:hover {
+  background: rgba(2,6,23,0.04);
+}
+
+.tab-link.active {
+  background: #ffffff;
+  color: #0f2341; /* match rider/driver navy */
+  border-color: #d7e2f0;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(16,24,40,0.06);
+}
+
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
 
 /* Tables */
 table {
@@ -84,7 +208,7 @@ tbody tr:hover {
 
 /* Links */
 a {
-  color: #0078d7;
+  color: #1a3a5f;
   text-decoration: none;
 }
 
@@ -94,7 +218,7 @@ a:hover {
 
 /* Buttons */
 button {
-  background-color: #0078d7;
+  background-color: #1a3a5f;
   color: #fff;
   border: none;
   padding: 0.5rem 1rem;
@@ -105,7 +229,7 @@ button {
 }
 
 button:hover {
-  background-color: #005a9e;
+  background-color: #0f2341;
 }
 
 button:disabled {
@@ -134,9 +258,10 @@ td a {
 
 /* Responsive tweaks */
 @media (max-width: 768px) {
-  .admin-header {
+  .admin-header-inner {
     flex-direction: column;
     align-items: flex-start;
+    gap: 0.5rem;
   }
 
   table, thead, tbody, th, td, tr {

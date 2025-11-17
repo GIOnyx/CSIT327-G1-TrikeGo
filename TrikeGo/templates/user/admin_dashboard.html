@@ -9,15 +9,18 @@
 </head>
 <body>
   <header class="admin-header">
-    <div style="display: flex; justify-content: space-between; align-items: center;">
-      <div>
-        <h1>Admin Dashboard</h1>
-        <p>Welcome, {{ request.user.username }}</p>
+    <div class="admin-header-inner">
+      <div class="brand">
+        <h1>TrikeGo Admin</h1>
+        <p class="sub">Welcome, {{ request.user.username }}</p>
       </div>
-      <form method="post" action="{% url 'user:logout' %}" style="margin: 0;">
-        {% csrf_token %}
-        <button type="submit" class="logout-btn">Logout</button>
-      </form>
+      <div class="admin-actions">
+        <button id="push-unsubscribe-btn" class="btn btn-sm btn-outline-danger">Unsubscribe</button>
+        <form method="post" action="{% url 'user:logout' %}" class="logout-form">
+          {% csrf_token %}
+          <button type="submit" class="logout-btn">Logout</button>
+        </form>
+      </div>
     </div>
   </header>
 
@@ -31,13 +34,62 @@
     </div>
   {% endif %}
   <main class="admin-content">
-    <section class="dashboard-section">
+    <div class="tabs" role="tablist" aria-label="Admin sections">
+      <a href="?tab=drivers" class="tab-link{% if active_tab == 'drivers' or not active_tab %} active{% endif %}" data-tab="drivers">Drivers</a>
+      <a href="?tab=riders" class="tab-link{% if active_tab == 'riders' %} active{% endif %}" data-tab="riders">Riders</a>
+      <a href="?tab=trips" class="tab-link{% if active_tab == 'trips' %} active{% endif %}" data-tab="trips">Trips</a>
+    </div>
+    <section class="dashboard-section tab-panel{% if active_tab == 'drivers' or not active_tab %} active{% endif %}" data-tab="drivers">
       <h2>Drivers</h2>
+
+      <form method="get" class="trips-filters">
+        <input type="hidden" name="tab" value="drivers" />
+        <label>
+          Search:
+          <input type="text" name="d_search" value="{{ request.GET.d_search|default:'' }}" placeholder="name or username" />
+        </label>
+        <label>
+          Status:
+          <select name="d_status">
+            <option value="">All</option>
+            <option value="Offline" {% if request.GET.d_status == 'Offline' %}selected{% endif %}>Offline</option>
+            <option value="Online" {% if request.GET.d_status == 'Online' %}selected{% endif %}>Online</option>
+            <option value="In_trip" {% if request.GET.d_status == 'In_trip' %}selected{% endif %}>In trip</option>
+          </select>
+        </label>
+        <label>
+          Verified:
+          <select name="d_verified">
+            <option value="">Any</option>
+            <option value="true" {% if request.GET.d_verified == 'true' %}selected{% endif %}>Verified</option>
+            <option value="false" {% if request.GET.d_verified == 'false' %}selected{% endif %}>Unverified</option>
+          </select>
+        </label>
+        <label>
+          Sort:
+          <select name="d_sort">
+            <option value="">Default</option>
+            <option value="name" {% if request.GET.d_sort == 'name' %}selected{% endif %}>Name</option>
+            <option value="username" {% if request.GET.d_sort == 'username' %}selected{% endif %}>Username</option>
+            <option value="date_hired" {% if request.GET.d_sort == 'date_hired' %}selected{% endif %}>Date Hired</option>
+            <option value="status" {% if request.GET.d_sort == 'status' %}selected{% endif %}>Status</option>
+          </select>
+        </label>
+        <label>
+          Order:
+          <select name="d_order">
+            <option value="desc" {% if request.GET.d_order != 'asc' %}selected{% endif %}>Desc</option>
+            <option value="asc" {% if request.GET.d_order == 'asc' %}selected{% endif %}>Asc</option>
+          </select>
+        </label>
+        <button type="submit">Apply</button>
+      </form>
+
       <table>
         <thead>
           <tr>
             <th>Driver Name</th>
-            <th>Username</th> 
+            <th>Username</th>
             <th>Phone</th>
             <th>License No.</th>
             <th>License Image URL</th>
@@ -48,7 +100,7 @@
           </tr>
         </thead>
         <tbody>
-          {% for driver in drivers %}
+          {% for driver in drivers_page.object_list %}
           <tr>
             <td>{{ driver.user.first_name }} {{ driver.user.last_name }}</td>
             <td>{{ driver.user.username }}</td>
@@ -100,10 +152,61 @@
           {% endfor %}
         </tbody>
       </table>
+
+      {% if drivers_page.has_other_pages %}
+      <nav class="pagination">
+        {% if drivers_page.has_previous %}
+          <a href="?page_drivers={{ drivers_page.previous_page_number }}&amp;tab=drivers">&laquo; Prev</a>
+        {% else %}
+          <span class="disabled">&laquo; Prev</span>
+        {% endif %}
+        <span class="page-info">Page {{ drivers_page.number }} of {{ drivers_page.paginator.num_pages }}</span>
+        {% if drivers_page.has_next %}
+          <a href="?page_drivers={{ drivers_page.next_page_number }}&amp;tab=drivers">Next &raquo;</a>
+        {% else %}
+          <span class="disabled">Next &raquo;</span>
+        {% endif %}
+      </nav>
+      {% endif %}
     </section>
 
-    <section class="dashboard-section">
+    <section class="dashboard-section tab-panel{% if active_tab == 'riders' %} active{% endif %}" data-tab="riders">
       <h2>Riders</h2>
+
+      <form method="get" class="trips-filters">
+        <input type="hidden" name="tab" value="riders" />
+        <label>
+          Search:
+          <input type="text" name="r_search" value="{{ request.GET.r_search|default:'' }}" placeholder="name, username or email" />
+        </label>
+        <label>
+          Status:
+          <select name="r_status">
+            <option value="">All</option>
+            <option value="Available" {% if request.GET.r_status == 'Available' %}selected{% endif %}>Available</option>
+            <option value="In_trip" {% if request.GET.r_status == 'In_trip' %}selected{% endif %}>In trip</option>
+          </select>
+        </label>
+        <label>
+          Sort:
+          <select name="r_sort">
+            <option value="">Default</option>
+            <option value="name" {% if request.GET.r_sort == 'name' %}selected{% endif %}>Name</option>
+            <option value="username" {% if request.GET.r_sort == 'username' %}selected{% endif %}>Username</option>
+            <option value="loyalty" {% if request.GET.r_sort == 'loyalty' %}selected{% endif %}>Loyalty Points</option>
+            <option value="status" {% if request.GET.r_sort == 'status' %}selected{% endif %}>Status</option>
+          </select>
+        </label>
+        <label>
+          Order:
+          <select name="r_order">
+            <option value="desc" {% if request.GET.r_order != 'asc' %}selected{% endif %}>Desc</option>
+            <option value="asc" {% if request.GET.r_order == 'asc' %}selected{% endif %}>Asc</option>
+          </select>
+        </label>
+        <button type="submit">Apply</button>
+      </form>
+
       <table>
         <thead>
           <tr>
@@ -111,23 +214,139 @@
             <th>Username</th>
             <th>Email</th>
             <th>Phone</th>
-            <th>Loyalty Points</th>
           </tr>
         </thead>
         <tbody>
-          {% for rider in riders %}
+          {% for rider in riders_page.object_list %}
           <tr>
             <td>{{ rider.user.first_name }} {{ rider.user.last_name }}</td>
             <td>{{ rider.user.username }}</td>
             <td>{{ rider.user.email }}</td>
             <td>{{ rider.user.phone }}</td>
-            <td>{{ rider.loyalty_points }}</td>
           </tr>
           {% empty %}
-          <tr><td colspan="5">No riders found.</td></tr>
+          <tr><td colspan="4">No riders found.</td></tr>
           {% endfor %}
         </tbody>
       </table>
+
+      {% if riders_page.has_other_pages %}
+      <nav class="pagination">
+        {% if riders_page.has_previous %}
+          <a href="?page_riders={{ riders_page.previous_page_number }}&amp;tab=riders">&laquo; Prev</a>
+        {% else %}
+          <span class="disabled">&laquo; Prev</span>
+        {% endif %}
+        <span class="page-info">Page {{ riders_page.number }} of {{ riders_page.paginator.num_pages }}</span>
+        {% if riders_page.has_next %}
+          <a href="?page_riders={{ riders_page.next_page_number }}&amp;tab=riders">Next &raquo;</a>
+        {% else %}
+          <span class="disabled">Next &raquo;</span>
+        {% endif %}
+      </nav>
+      {% endif %}
+    </section>
+    <section class="dashboard-section tab-panel{% if active_tab == 'trips' %} active{% endif %}" data-tab="trips">
+      <h2>Trips</h2>
+
+      <form method="get" class="trips-filters">
+        <input type="hidden" name="tab" value="trips" />
+        <label>
+          Status:
+          <select name="status">
+            <option value="">All</option>
+            <option value="pending" {% if filter_status == 'pending' %}selected{% endif %}>pending</option>
+            <option value="accepted" {% if filter_status == 'accepted' %}selected{% endif %}>accepted</option>
+            <option value="on_the_way" {% if filter_status == 'on_the_way' %}selected{% endif %}>on_the_way</option>
+            <option value="started" {% if filter_status == 'started' %}selected{% endif %}>started</option>
+            <option value="completed" {% if filter_status == 'completed' %}selected{% endif %}>completed</option>
+            <option value="cancelled_by_rider" {% if filter_status == 'cancelled_by_rider' %}selected{% endif %}>cancelled_by_rider</option>
+            <option value="cancelled_by_driver" {% if filter_status == 'cancelled_by_driver' %}selected{% endif %}>cancelled_by_driver</option>
+            <option value="no_driver_found" {% if filter_status == 'no_driver_found' %}selected{% endif %}>no_driver_found</option>
+          </select>
+        </label>
+
+        <label>
+          Driver (username):
+          <input type="text" name="driver" value="{{ filter_driver }}" placeholder="driver username" />
+        </label>
+
+        <label>
+          From:
+          <input type="date" name="date_from" value="{{ filter_date_from }}" />
+        </label>
+
+        <label>
+          To:
+          <input type="date" name="date_to" value="{{ filter_date_to }}" />
+        </label>
+
+        <button type="submit">Apply</button>
+        <a href="?tab=trips" class="btn btn-sm">Reset</a>
+      </form>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Trip ID</th>
+            <th>Driver</th>
+            <th>Rider</th>
+            <th>Pickup</th>
+            <th>Destination</th>
+            <th>Fare</th>
+            <th>Distance (km)</th>
+            <th>Status</th>
+            <th>Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for trip in trips_page.object_list %}
+          <tr>
+            <td data-label="Trip ID">{{ trip.id }}</td>
+            <td data-label="Driver">
+              {% if trip.driver %}
+                {{ trip.driver.get_full_name|default:trip.driver.username }}
+              {% else %}
+                —
+              {% endif %}
+            </td>
+            <td data-label="Rider">
+              {% if trip.rider %}
+                {{ trip.rider.get_full_name|default:trip.rider.username }}
+              {% else %}
+                —
+              {% endif %}
+            </td>
+            <td data-label="Pickup">{{ trip.pickup_address|default:'—' }}</td>
+            <td data-label="Destination">{{ trip.destination_address|default:'—' }}</td>
+            <td data-label="Fare">{% if trip.fare %}₱{{ trip.fare }}{% else %}—{% endif %}</td>
+            <td data-label="Distance">{% if trip.estimated_distance %}{{ trip.estimated_distance }}{% else %}—{% endif %}</td>
+            <td data-label="Status">{{ trip.status }}</td>
+            <td data-label="Date">{{ trip.booking_time|date:"M d, Y h:i A" }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="9">No trips found.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      {% if trips_page.has_other_pages %}
+      <nav class="pagination" aria-label="Trips pagination">
+        {% if trips_page.has_previous %}
+          <a href="?page={{ trips_page.previous_page_number }}&amp;status={{ filter_status }}&amp;driver={{ filter_driver }}&amp;date_from={{ filter_date_from }}&amp;date_to={{ filter_date_to }}&amp;tab=trips">&laquo; Prev</a>
+        {% else %}
+          <span class="disabled">&laquo; Prev</span>
+        {% endif %}
+
+        <span class="page-info">Page {{ trips_page.number }} of {{ trips_page.paginator.num_pages }}</span>
+
+        {% if trips_page.has_next %}
+          <a href="?page={{ trips_page.next_page_number }}&amp;status={{ filter_status }}&amp;driver={{ filter_driver }}&amp;date_from={{ filter_date_from }}&amp;date_to={{ filter_date_to }}&amp;tab=trips">Next &raquo;</a>
+        {% else %}
+          <span class="disabled">Next &raquo;</span>
+        {% endif %}
+      </nav>
+      {% endif %}
     </section>
   </main>
   {# Push registration bootstrap for admins #}
@@ -144,7 +363,43 @@
     });
   </script>
 
-  <!-- Push unsubscribe control -->
-  <button id="push-unsubscribe-btn" class="btn btn-sm btn-outline-danger">Unsubscribe from notifications</button>
+  <script>
+    // Tab switching without reload; keep URL in sync
+    (function () {
+      function activateTab(tab) {
+        document.querySelectorAll('.tab-link').forEach(function (el) {
+          el.classList.toggle('active', el.dataset.tab === tab);
+        });
+        document.querySelectorAll('.tab-panel').forEach(function (el) {
+          el.classList.toggle('active', el.dataset.tab === tab);
+        });
+      }
+
+      // initial active tab from server
+      var initial = '{{ active_tab|default:"drivers" }}';
+      activateTab(initial);
+
+      document.querySelectorAll('.tab-link').forEach(function (el) {
+        el.addEventListener('click', function (e) {
+          // if the link is same-page toggle, prevent navigation and toggle
+          var href = el.getAttribute('href') || '';
+          if (href.indexOf('?') === 0) {
+            e.preventDefault();
+            var tab = el.dataset.tab;
+            activateTab(tab);
+            try {
+              var url = new URL(window.location.href);
+              url.searchParams.set('tab', tab);
+              history.pushState({}, '', url.toString());
+            } catch (err) {
+              // ignore URL API errors
+            }
+          }
+        });
+      });
+    })();
+  </script>
+
+  <!-- Push unsubscribe control (moved to header actions) -->
 </body>
 </html>

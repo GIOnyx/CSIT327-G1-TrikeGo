@@ -19,8 +19,12 @@
         const ratingInputs = form.querySelectorAll('.rating-stars input[type="radio"]');
 
         function updateStarStates(selectedValue) {
+            // Clear all first to avoid stale classes
+            const allStars = form.querySelectorAll('.rating-star');
+            allStars.forEach(s => s.classList.remove('rating-star--active'));
+
             ratingInputs.forEach((input) => {
-                const star = input.nextElementSibling;
+                const star = form.querySelector(`label[for="${input.id}"]`);
                 if (!star) return;
                 const isActive = Number(input.value) <= Number(selectedValue);
                 star.classList.toggle('rating-star--active', isActive);
@@ -31,25 +35,35 @@
             const checked = form.querySelector('.rating-stars input[type="radio"]:checked');
             if (checked) {
                 updateStarStates(checked.value);
-            } else if (ratingInputs.length) {
-                ratingInputs[0].checked = true;
-                updateStarStates(ratingInputs[0].value);
             } else {
-                updateStarStates(0);
+                // Default to the lowest rating (1) so the left-most star is highlighted
+                if (ratingInputs.length) {
+                    ratingInputs[0].checked = true;
+                    updateStarStates(ratingInputs[0].value);
+                } else {
+                    updateStarStates(0);
+                }
             }
         }
 
         ratingInputs.forEach((input) => {
+            const star = form.querySelector(`label[for="${input.id}"]`);
+
             input.addEventListener('change', () => {
                 updateStarStates(input.value);
             });
 
-            const star = input.nextElementSibling;
             if (star) {
                 star.addEventListener('mouseenter', () => updateStarStates(input.value));
                 star.addEventListener('focus', () => updateStarStates(input.value));
                 star.addEventListener('mouseleave', refreshFromChecked);
                 star.addEventListener('blur', refreshFromChecked);
+                // clicking the label should also set the input (browser does this),
+                // but ensure change handler runs by listening to click as well.
+                star.addEventListener('click', () => {
+                    input.checked = true;
+                    updateStarStates(input.value);
+                });
             }
         });
 
