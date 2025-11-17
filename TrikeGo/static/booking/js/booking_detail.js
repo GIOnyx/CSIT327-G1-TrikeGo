@@ -16,6 +16,16 @@
                     alert('Cancel URL not available');
                     return;
                 }
+                const el = cancelBtn;
+                try {
+                    if (window.singleClickHelper && typeof window.singleClickHelper.setLoading === 'function') {
+                        try { window.singleClickHelper.setLoading(el); } catch (err) {}
+                        try { el.dataset.processing = 'true'; } catch (err) {}
+                    } else {
+                        el.disabled = true;
+                    }
+                } catch (e) { el.disabled = true; }
+
                 fetch(url, {
                     method: 'POST',
                     credentials: 'same-origin',
@@ -29,11 +39,22 @@
                     if (data.status === 'success') {
                         messageDiv.className = 'msg-success';
                         cancelBtn.textContent = 'Cancelled';
-                        cancelBtn.disabled = true;
                         cancelBtn.classList.add('btn-disabled');
+                        if (window.singleClickHelper && typeof window.singleClickHelper.clearLoading === 'function') {
+                            try { window.singleClickHelper.clearLoading(el); } catch (err) {}
+                            try { el.dataset.processing = 'false'; } catch (err) {}
+                        } else {
+                            cancelBtn.disabled = true;
+                        }
                         setTimeout(() => window.location.reload(), 1200);
                     } else {
                         messageDiv.className = 'msg-error';
+                        if (window.singleClickHelper && typeof window.singleClickHelper.clearLoading === 'function') {
+                            try { window.singleClickHelper.clearLoading(el); } catch (err) {}
+                            try { el.dataset.processing = 'false'; } catch (err) {}
+                        } else {
+                            cancelBtn.disabled = false;
+                        }
                     }
                 })
                 .catch(err => {
@@ -42,6 +63,12 @@
                     messageDiv.textContent = 'An unexpected error occurred.';
                     messageDiv.className = 'msg-error';
                     messageDiv.style.display = 'block';
+                    if (window.singleClickHelper && typeof window.singleClickHelper.clearLoading === 'function') {
+                        try { window.singleClickHelper.clearLoading(el); } catch (err) {}
+                        try { el.dataset.processing = 'false'; } catch (err) {}
+                    } else {
+                        cancelBtn.disabled = false;
+                    }
                 });
             });
         }

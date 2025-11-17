@@ -32,7 +32,7 @@
             <p style="color: #666; margin-bottom: 25px;">Generate a PIN for the rider to verify cash payment</p>
             
             <div id="pin-generation-section">
-                <button id="modal-generate-pin-btn" style="background: #007bff; color: white; border: none; padding: 15px 30px; font-size: 16px; border-radius: 8px; cursor: pointer; margin-bottom: 15px;">
+                <button id="modal-generate-pin-btn" data-single-click style="background: #007bff; color: white; border: none; padding: 15px 30px; font-size: 16px; border-radius: 8px; cursor: pointer; margin-bottom: 15px;">
                     🔑 Generate Payment PIN
                 </button>
             </div>
@@ -171,7 +171,7 @@
                                 <button class="btn btn-secondary review-ride-btn" data-booking-id="{{ ride.id }}">Review</button>
                                 <form class="accept-ride-form" data-booking-id="{{ ride.id }}" method="POST" action="{% url 'drivers:accept_ride' ride.id %}">
                                     {% csrf_token %}
-                                    <button type="submit" class="btn btn-success" id="accept-btn-{{ ride.id }}">Accept</button>
+                                    <button type="submit" class="btn btn-success" id="accept-btn-{{ ride.id }}" data-single-click>Accept</button>
                                 </form>
                             </div>
                         </div>
@@ -350,7 +350,7 @@
                 <div class="summary-stats">
                     <span class="summary-capacity">Capacity: <span id="summary-capacity">0 / 0</span> Seats</span>
                 </div>
-                <button id="summary-action-btn" class="btn btn-success" type="button" style="width: 100%;" disabled>Start</button>
+                <button id="summary-action-btn" data-single-click class="btn btn-success" type="button" style="width: 100%;" disabled>Start</button>
             </div>
 
             <div id="itinerary-full" class="itinerary-full" style="display:none;">
@@ -372,6 +372,7 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="{% static 'user/js/single_click_helper.js' %}"></script>
     <script src="{% static 'booking/js/driver_dashboard_config.js' %}?v=2"></script>
     <script src="{% static 'booking/js/driver_panel_manager.js' %}"></script>
     <script src="{% static 'booking/js/driver_statistics_panel.js' %}?v=1"></script>
