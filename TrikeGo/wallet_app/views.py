@@ -20,7 +20,7 @@ def _build_driver_wallet_context(user):
             status='completed',
             fare__isnull=False,
         )
-        .select_related('rider')
+        .select_related('passenger')
         .annotate(
             completed_at=Coalesce(
                 'end_time',
@@ -107,9 +107,9 @@ def driver_wallet_summary(request):
             completed_display = ''
             completed_iso = ''
 
-        rider_name = ''
-        if trip.rider:
-            rider_name = trip.rider.get_full_name() or trip.rider.username or ''
+        passenger_name = ''
+        if trip.passenger:
+            passenger_name = trip.passenger.get_full_name() or trip.passenger.username or ''
 
         recent_trips.append(
             {
@@ -117,7 +117,7 @@ def driver_wallet_summary(request):
                 'completed_iso': completed_iso,
                 'completed_display': completed_display,
                 'fare': currency(trip.fare),
-                'rider_name': rider_name,
+                'passenger_name': passenger_name,
                 'pickup': trip.pickup_address or '',
                 'destination': trip.destination_address or '',
                 'distance': float(trip.estimated_distance) if trip.estimated_distance is not None else None,

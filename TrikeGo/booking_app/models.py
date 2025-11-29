@@ -7,11 +7,12 @@ from decimal import Decimal
 from discount_codes_app.models import DiscountCode
 
 class Booking(models.Model):
-    rider = models.ForeignKey(
+    passenger = models.ForeignKey(
         'user.CustomUser',
         on_delete=models.CASCADE,
-        related_name='rider_bookings',
-        limit_choices_to={'trikego_user': 'R'}
+        related_name='passenger_bookings',
+        limit_choices_to={'trikego_user': 'P'},
+        null=True, blank=True,
     )
     driver = models.ForeignKey(
         'user.CustomUser',
@@ -38,11 +39,11 @@ class Booking(models.Model):
         ('on_the_way', 'Driver On The Way'),
         ('started', 'Trip Started'),
         ('completed', 'Completed'),
-        ('cancelled_by_rider', 'Cancelled by Rider'),
+        ('cancelled_by_passenger', 'Cancelled by Passenger'),
         ('cancelled_by_driver', 'Cancelled by Driver'),
         ('no_driver_found', 'No Driver Found')
     ]
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    status = models.CharField(max_length=30, choices=STATUS_CHOICES, default='pending')
     booking_time = models.DateTimeField(default=timezone.now)
     start_time = models.DateTimeField(null=True, blank=True)
     end_time = models.DateTimeField(null=True, blank=True)
@@ -145,7 +146,7 @@ class Booking(models.Model):
         return self.fare
 
     def __str__(self):
-        return f"Booking {self.id} - {self.rider.username} to {self.destination_address}"
+        return f"Booking {self.id} - {self.passenger.username} to {self.destination_address}"
 
     @property
     def is_active(self):
@@ -173,7 +174,7 @@ class Booking(models.Model):
         indexes = [
             models.Index(fields=['status']),
             models.Index(fields=['driver']),
-            models.Index(fields=['rider']),
+            models.Index(fields=['passenger']),
             models.Index(fields=['booking_time']),
             models.Index(fields=['driver', 'status']),
         ]
@@ -196,7 +197,7 @@ class BookingStop(models.Model):
     booking = models.ForeignKey(Booking, on_delete=models.CASCADE, related_name='stops')
     sequence = models.PositiveIntegerField(default=0, db_index=True)
     stop_type = models.CharField(max_length=8, choices=STOP_TYPES)
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='UPCOMING')
+    status = models.CharField(max_length=30, choices=STATUS_CHOICES, default='UPCOMING')
     passenger_count = models.PositiveSmallIntegerField(default=1)
     address = models.CharField(max_length=255)
     latitude = models.DecimalField(max_digits=18, decimal_places=15, null=True, blank=True)
@@ -257,7 +258,7 @@ class RouteSnapshot(models.Model):
         return f"Route for Booking {self.booking.id} at {self.created_at}"
     
 class RatingAndFeedback(models.Model):
-    """Stores the rider's rating and feedback for a specific booking."""
+    """Stores the passenger's rating and feedback for a specific booking."""
     
     RATING_CHOICES = [(i, str(i)) for i in range(1, 6)] # 1 to 5 stars
 
@@ -269,13 +270,13 @@ class RatingAndFeedback(models.Model):
         verbose_name='Trip Booking'
     )
     
-    # Store the user who submitted the rating (the rider)
+    # Store the user who submitted the rating (the passenger)
     rater = models.ForeignKey(
         'user.CustomUser',
         on_delete=models.CASCADE,
         related_name='ratings_given',
-        limit_choices_to={'trikego_user': 'R'},
-        verbose_name='Rater (Rider)'
+        limit_choices_to={'trikego_user': 'P'},
+        verbose_name='Rater (Passenger)'
     )
     
     # Store the user who is being rated (the driver)

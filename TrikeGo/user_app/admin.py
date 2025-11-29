@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.utils.html import format_html
-from .models import Driver, Admin, Rider, Tricycle
+from .models import Driver, Admin, Passenger, Tricycle
 
 # Inline for Tricycle to show in Driver admin
 class TricycleInline(admin.TabularInline):
@@ -111,4 +111,4 @@ class TricycleAdmin(admin.ModelAdmin):
 
 # Register your models here.
 admin.site.register(Admin)
-admin.site.register(Rider)
+admin.site.register(Passenger)

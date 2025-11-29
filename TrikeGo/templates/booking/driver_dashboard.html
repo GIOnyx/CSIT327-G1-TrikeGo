@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="{% static 'wallet/css/driver_wallet_panel.css' %}?v=1" />
     <link rel="stylesheet" href="{% static 'booking/css/driver_statistics_panel.css' %}?v=1" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
-</head>
+</head> 
 <body
     data-ors-api-key="{{ settings.OPENROUTESERVICE_API_KEY }}"
     data-user-id="{{ user.id|default:'' }}"
@@ -29,7 +29,7 @@
         <div style="background: white; padding: 30px; border-radius: 12px; max-width: 500px; width: 90%; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
             <h2 style="margin-bottom: 20px; color: #333;">🎉 Trip Completed!</h2>
             <p style="font-size: 18px; margin-bottom: 10px;">Total Fare: <strong id="modal-fare">₱0.00</strong></p>
-            <p style="color: #666; margin-bottom: 25px;">Generate a PIN for the rider to verify cash payment</p>
+            <p style="color: #666; margin-bottom: 25px;">Generate a PIN for the passenger to verify cash payment</p>
             
             <div id="pin-generation-section">
                 <button id="modal-generate-pin-btn" data-single-click style="background: #007bff; color: white; border: none; padding: 15px 30px; font-size: 16px; border-radius: 8px; cursor: pointer; margin-bottom: 15px;">
@@ -39,11 +39,11 @@
             
             <div id="pin-display-section" style="display: none;">
                 <div style="background: linear-gradient(135deg, #0f2341 0%, #1a3a5f 100%); padding: 25px; border-radius: 10px; margin-bottom: 20px;">
-                    <p style="color: white; margin-bottom: 10px; font-size: 14px;">Share this PIN with rider:</p>
+                    <p style="color: white; margin-bottom: 10px; font-size: 14px;">Share this PIN with passengerr:</p>
                     <div id="modal-pin-display" style="font-size: 48px; font-weight: bold; color: white; letter-spacing: 8px; font-family: monospace;">----</div>
                     <p style="color: white; margin-top: 10px; font-size: 14px;">⏱️ Expires in: <span id="modal-pin-timer">5:00</span></p>
                 </div>
-                <p style="color: #666; font-size: 14px; margin-bottom: 15px;">Waiting for rider to verify...</p>
+                <p style="color: #666; font-size: 14px; margin-bottom: 15px;">Waiting for passenger to verify...</p>
             </div>
             
             <button id="modal-close-btn" style="background: #6c757d; color: white; border: none; padding: 12px 25px; font-size: 14px; border-radius: 6px; cursor: pointer;">
@@ -123,7 +123,7 @@
         <div class="wallet-panel__header">
             <div>
                 <h2>Available Rides</h2>
-                <p>Accept new bookings and view rider details</p>
+                <p>Accept new bookings and view passenger details</p>
             </div>
             <button id="close-driver-rides-panel" aria-label="Close rides panel">×</button>
         </div>
@@ -134,7 +134,7 @@
                         <div class="driver-ride-card" data-booking-id="{{ ride.id }}">
                             <div class="driver-ride-card__top">
                                 <div>
-                                    <span class="driver-ride-card__rider">{{ ride.rider.get_full_name|default:ride.rider.username }}</span>
+                                    <span class="driver-ride-card__passenger">{{ ride.passenger.get_full_name|default:ride.passenger.username }}</span>
                                     <span class="driver-ride-card__seats">{{ ride.passengers|default:1 }} passenger{{ ride.passengers|default:1|pluralize }}</span>
                                 </div>
                                 <div class="driver-ride-card__fare">
@@ -217,7 +217,7 @@
                     <div class="driver-statistics-card">
                         <span class="driver-statistics-card__label">Cancelled</span>
                         <span id="driver-stats-cancelled-rides" class="driver-statistics-card__value">—</span>
-                        <span class="driver-statistics-card__meta">Rider or driver</span>
+                        <span class="driver-statistics-card__meta">Passenger or driver</span>
                     </div>
                     <div class="driver-statistics-card">
                         <span class="driver-statistics-card__label">Completion rate</span>

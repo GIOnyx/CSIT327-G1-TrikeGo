@@ -5,14 +5,14 @@ from django.views import View
 from django.views.decorators.http import require_POST
 from django.utils import timezone
 from .forms import (
-    RiderRegistrationForm,
+    PassengerRegistrationForm,
     LoginForm,
 )
 from drivers_app.forms import (
     DriverRegistrationForm,
     DriverVerificationForm,
 )
-from .models import Driver, Rider, CustomUser, Tricycle
+from .models import Driver, Passenger, CustomUser, Tricycle
 from booking_app.forms import BookingForm
 from ratings_app.forms import RatingForm
 from datetime import date, timedelta
@@ -83,8 +83,8 @@ class Login(View):
                 login(request, user)
                 if user.trikego_user == 'D':
                     return redirect('user:driver_dashboard')
-                elif user.trikego_user == 'R':
-                    return redirect('user:rider_dashboard')
+                elif user.trikego_user == 'P':
+                    return redirect('user:passenger_dashboard')
                 elif user.trikego_user == 'A':
                     return redirect('user:admin_dashboard')
                 return redirect('user:logged_in')
@@ -100,17 +100,17 @@ class RegisterPage(View):
     template_name = 'user/register.html'
 
     def get(self, request):
-        user_type = request.GET.get('type', 'rider')
-        form = DriverRegistrationForm() if user_type == 'driver' else RiderRegistrationForm()
+        user_type = request.GET.get('type', 'passenger')
+        form = DriverRegistrationForm() if user_type == 'driver' else PassengerRegistrationForm()
         return render(request, self.template_name, {'form': form, 'user_type': user_type})
 
     def post(self, request):
-        user_type = request.POST.get('user_type', 'rider')
-        form = DriverRegistrationForm(request.POST) if user_type == 'driver' else RiderRegistrationForm(request.POST)
+        user_type = request.POST.get('user_type', 'passenger')
+        form = DriverRegistrationForm(request.POST) if user_type == 'driver' else PassengerRegistrationForm(request.POST)
 
         if form.is_valid():
             user = form.save(commit=False)
-            user.trikego_user = 'D' if user_type == 'driver' else 'R'
+            user.trikego_user = 'D' if user_type == 'driver' else 'P'
             user.save()
 
             if user_type == 'driver':
@@ -127,7 +127,7 @@ class RegisterPage(View):
                     request.session['pending_driver_id'] = pending_driver.id
                     return redirect('user:tricycle_register')
             else:
-                Rider.objects.create(user=user)
+                Passenger.objects.create(user=user)
 
             messages.success(request, f"{user_type.capitalize()} registration successful!")
             return redirect('user:landing')
@@ -144,7 +144,7 @@ class LoggedIn(View):
 
 @require_POST
 def cancel_booking(request, booking_id):
-    if not request.user.is_authenticated or request.user.trikego_user != 'R':
+    if not request.user.is_authenticated or request.user.trikego_user != 'P':
         return redirect('user:landing')
 
     booking = get_object_or_404(Booking, id=booking_id)
@@ -152,9 +152,9 @@ def cancel_booking(request, booking_id):
 
     active_driver_statuses = {'accepted', 'on_the_way', 'started'}
     booking_is_active = booking.status in active_driver_statuses
-    if booking.rider != request.user:
+    if booking.passenger != request.user:
         messages.error(request, 'Permission denied.')
-        return redirect('user:rider_dashboard')
+        return redirect('user:passenger_dashboard')
 
     if booking.status in ['pending', 'accepted', 'on_the_way']:
         old_status = booking.status
@@ -163,7 +163,7 @@ def cancel_booking(request, booking_id):
 
         if booking.status == 'pending' and booking.driver is None:
             print(f"[cancel_booking] Already pending with no driver, just clearing cache")
-            booking.status = 'cancelled_by_rider'
+            booking.status = 'cancelled_by_passenger'
             booking.save()
         else:
             print(f"[cancel_booking] Reverting to pending from {old_status}")
@@ -177,9 +177,9 @@ def cancel_booking(request, booking_id):
                 try:
                     if dispatch_notification and NotificationMessage:
                         msg = NotificationMessage(
-                            title='Ride Cancelled by Rider',
-                            body=f"Rider has cancelled booking #{booking.id}.",
-                            data={'booking_id': booking.id, 'type': 'rider_cancelled'},
+                            title='Ride Cancelled by Passenger',
+                            body=f"Passenger has cancelled booking #{booking.id}.",
+                            data={'booking_id': booking.id, 'type': 'passenger_cancelled'},
                         )
                         dispatch_notification([old_driver.id], msg, topics=['driver'])
                         print(f'📢 Sent cancellation notification to driver {old_driver.username}')
@@ -203,20 +203,20 @@ def cancel_booking(request, booking_id):
     else:
         messages.error(request, 'This booking cannot be cancelled at this stage.')
 
-    return redirect('user:rider_dashboard')
+    return redirect('user:passenger_dashboard')
 
 
-class RiderDashboard(View):
-    template_name = 'booking/rider_dashboard.html'
+class PassengerDashboard(View):
+    template_name = 'booking/passenger_dashboard.html'
 
     def get_context_data(self, request, form=None):
-        if not request.user.is_authenticated or request.user.trikego_user != 'R':
+        if not request.user.is_authenticated or request.user.trikego_user != 'P':
             return None
 
-        profile = Rider.objects.filter(user=request.user).first()
+        profile = Passenger.objects.filter(user=request.user).first()
         booking_form = form or BookingForm()
         active_bookings = Booking.objects.filter(
-            rider=request.user,
+            passenger=request.user,
             status__in=['pending', 'accepted', 'on_the_way', 'started'],
         )
         try:
@@ -231,13 +231,13 @@ class RiderDashboard(View):
         except Exception:
             pass
         ride_history = Booking.objects.filter(
-            rider=request.user,
-            status__in=['completed', 'cancelled_by_rider', 'cancelled_by_driver', 'no_driver_found'],
+            passenger=request.user,
+            status__in=['completed', 'cancelled_by_passenger', 'cancelled_by_driver', 'no_driver_found'],
         ).order_by('-booking_time')
 
         latest_booking = (
             Booking.objects
-            .filter(rider=request.user)
+            .filter(passenger=request.user)
             .order_by('-booking_time', '-id')
             .first()
         )
@@ -247,7 +247,7 @@ class RiderDashboard(View):
 
         # This is the CORRECT code
         unrated_booking = Booking.objects.filter(
-            rider=request.user,
+            passenger=request.user,
             status='completed',
             payment_verified=True,
         ).filter(rating__isnull=True).order_by('-end_time').first()
@@ -256,7 +256,7 @@ class RiderDashboard(View):
 
         return {
             'user': request.user,
-            'rider_profile': profile,
+            'passenger_profile': profile,
             'active_bookings': active_bookings,
             'ride_history': ride_history,
             'settings': settings,
@@ -273,12 +273,12 @@ class RiderDashboard(View):
         return render(request, self.template_name, context)
 
     def post(self, request):
-        if not request.user.is_authenticated or request.user.trikego_user != 'R':
+        if not request.user.is_authenticated or request.user.trikego_user != 'P':
             return redirect('user:landing')
 
         latest_booking = (
             Booking.objects
-            .filter(rider=request.user)
+            .filter(passenger=request.user)
             .order_by('-booking_time', '-id')
             .first()
         )
@@ -287,17 +287,17 @@ class RiderDashboard(View):
                 request,
                 f'Please verify the cash payment for Trip #{latest_booking.id} before booking another ride.',
             )
-            return redirect('user:rider_dashboard')
+            return redirect('user:passenger_dashboard')
 
         active_qs = Booking.objects.filter(
-            rider=request.user,
+            passenger=request.user,
             status__in=['pending', 'accepted', 'on_the_way', 'started'],
         )
         active_count = active_qs.count()
         print(f'RiderDashboard.post: existing active bookings for user {request.user.username}: {active_count}')
         if active_count > 0:
             messages.error(request, 'You already have an active ride. Please complete or cancel it first.')
-            return redirect('user:rider_dashboard')
+            return redirect('user:passenger_dashboard')
 
         form = BookingForm(request.POST)
         try:
@@ -326,7 +326,7 @@ class RiderDashboard(View):
         try:
             print('BookingForm cleaned_data:', form.cleaned_data)
             booking = form.save(commit=False)
-            booking.rider = request.user
+            booking.passenger = request.user
 
             discount_code_str = request.POST.get('discount_code_input', '').strip() or None
 
@@ -371,7 +371,7 @@ class RiderDashboard(View):
                 except Exception as e:
                     print(f"Error updating discount code usage: {e}")
 
-            print(f'Booking saved with id={booking.id} for rider={request.user.username}')
+            print(f'Booking saved with id={booking.id} for passenger={request.user.username}')
 
             from django.db import connection
             connection.cursor().execute("COMMIT")
@@ -411,7 +411,7 @@ class RiderDashboard(View):
                 print(f'Failed to send new ride notifications: {e}')
 
             messages.success(request, 'Your booking has been created successfully!')
-            return redirect('user:rider_dashboard')
+            return redirect('user:passenger_dashboard')
         except Exception as e:
             print('Exception saving booking:', e)
             messages.error(request, 'An error occurred while saving your booking. Please try again.')
@@ -440,6 +440,13 @@ def logout_view(request):
     auth_logout(request)
     return redirect('user:landing')
 
+from django.views import View
+from django.shortcuts import render
+
+class PassengerDashboard(View):
+    def get(self, request):
+        return render(request, 'passenger_dashboard.html')
+
 
 class AdminDashboard(View):
     template_name = 'user/admin_dashboard.html'
@@ -449,7 +456,7 @@ class AdminDashboard(View):
             return redirect('user:landing')
 
         # Include trips (bookings) for admin overview. Order by most recent bookings.
-        trips_qs = Booking.objects.select_related('driver', 'rider').order_by('-booking_time')
+        trips_qs = Booking.objects.select_related('driver', 'passenger').order_by('-booking_time')
 
         # Apply simple filters from query params (status, driver username, date range)
         status_filter = request.GET.get('status')
@@ -517,22 +524,22 @@ class AdminDashboard(View):
         drivers_paginator = Paginator(drivers_qs, per_page)
         drivers_page = drivers_paginator.get_page(request.GET.get('page_drivers', 1))
 
-        # Riders list with filters, sorting and pagination
-        riders_qs = Rider.objects.select_related('user').all()
+        # Passengers list with filters, sorting and pagination
+        passengers_qs = Passenger.objects.select_related('user').all()
         r_search = request.GET.get('r_search')
         r_status = request.GET.get('r_status')
         r_sort = request.GET.get('r_sort')
         r_order = request.GET.get('r_order', 'desc')
 
         if r_search:
-            riders_qs = riders_qs.filter(
+            passengers_qs = passengers_qs.filter(
                 Q(user__first_name__icontains=r_search) |
                 Q(user__last_name__icontains=r_search) |
                 Q(user__username__icontains=r_search) |
                 Q(user__email__icontains=r_search)
             )
         if r_status:
-            riders_qs = riders_qs.filter(status=r_status)
+            passengers_qs = passengers_qs.filter(status=r_status)
 
         if r_sort:
             r_order_field = {
@@ -543,16 +550,16 @@ class AdminDashboard(View):
             }.get(r_sort, 'user__username')
             if r_order == 'desc':
                 r_order_field = '-' + r_order_field
-            riders_qs = riders_qs.order_by(r_order_field)
+            passengers_qs = passengers_qs.order_by(r_order_field)
         else:
-            riders_qs = riders_qs.order_by('-user__date_joined')
+            passengers_qs = passengers_qs.order_by('-user__date_joined')
 
-        riders_paginator = Paginator(riders_qs, per_page)
-        riders_page = riders_paginator.get_page(request.GET.get('page_riders', 1))
+        passengers_paginator = Paginator(passengers_qs, per_page)
+        passengers_page = passengers_paginator.get_page(request.GET.get('page_passengers', 1))
 
         context = {
             "drivers_page": drivers_page,
-            "riders_page": riders_page,
+            "passengers_page": passengers_page,
             "users": CustomUser.objects.all(),
             "verification_form": DriverVerificationForm(),
             "trips_page": page_obj,
@@ -588,16 +595,16 @@ class AdminDashboard(View):
 @csrf_exempt
 @login_required
 @require_POST
-def update_rider_location(request):
-    if request.user.trikego_user != 'R':
-        return JsonResponse({'status': 'error', 'message': 'Only riders can update location.'}, status=403)
+def update_passenger_location(request):
+    if request.user.trikego_user != 'P':
+        return JsonResponse({'status': 'error', 'message': 'Only passengers can update location.'}, status=403)
 
     try:
         data = json.loads(request.body)
         lat, lon = data.get('lat'), data.get('lon')
         if lat is None or lon is None:
             return JsonResponse({'status': 'error', 'message': 'Missing lat/lon.'}, status=400)
-        Rider.objects.filter(user=request.user).update(current_latitude=lat, current_longitude=lon)
+        Passenger.objects.filter(user=request.user).update(current_latitude=lat, current_longitude=lon)
         return JsonResponse({'status': 'success'})
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
@@ -628,16 +635,16 @@ def get_route_info(request, booking_id):
     if request.user.trikego_user == 'D':
         try:
             driver_profile = Driver.objects.get(user=request.user)
-            rider_profile = Rider.objects.get(user=booking.rider)
-        except (Driver.DoesNotExist, Rider.DoesNotExist):
-            return JsonResponse({'status': 'error', 'message': 'Profile not found for driver or rider.'}, status=404)
-    elif request.user.trikego_user == 'R':
-        if request.user != booking.rider:
+            passenger_profile = Passenger.objects.get(user=booking.passenger)
+        except (Driver.DoesNotExist, Passenger.DoesNotExist):
+            return JsonResponse({'status': 'error', 'message': 'Profile not found for driver or passenger.'}, status=404)
+    elif request.user.trikego_user == 'P':
+        if request.user != booking.passenger:
             return JsonResponse({'status': 'error', 'message': 'Permission denied.'}, status=403)
         try:
-            rider_profile = Rider.objects.get(user=request.user)
-        except Rider.DoesNotExist:
-            return JsonResponse({'status': 'error', 'message': 'Rider profile not found.'}, status=404)
+            passenger_profile = Passenger.objects.get(user=request.user)
+        except Passenger.DoesNotExist:
+            return JsonResponse({'status': 'error', 'message': 'Passenger profile not found.'}, status=404)
 
         driver_profile = None
         if booking_is_active and booking.driver:
@@ -815,8 +822,8 @@ def get_route_info(request, booking_id):
         'driver_lat': driver_profile.current_latitude if (booking_is_active and driver_profile) else None,
         'driver_lon': driver_profile.current_longitude if (booking_is_active and driver_profile) else None,
         'driver_name': driver_info.get('name') if (booking_is_active and driver_info) else None,
-        'rider_lat': rider_profile.current_latitude if rider_profile else None,
-        'rider_lon': rider_profile.current_longitude if rider_profile else None,
+        'passenger_lat': passenger_profile.current_latitude if passenger_profile else None,
+        'passenger_lon': passenger_profile.current_longitude if passenger_profile else None,
         'pickup_address': booking.pickup_address,
         'pickup_lat': booking.pickup_latitude,
         'pickup_lon': booking.pickup_longitude,
@@ -844,12 +851,12 @@ def get_route_info(request, booking_id):
 
     return JsonResponse(response_data)
 @login_required
-def get_rider_trip_history(request):
-    if request.user.trikego_user != 'R':
-        return JsonResponse({'status': 'error', 'message': 'Rider only'}, status=403)
+def get_passenger_trip_history(request):
+    if request.user.trikego_user != 'P':
+        return JsonResponse({'status': 'error', 'message': 'Passenger only'}, status=403)
 
     bookings = Booking.objects.filter(
-        rider=request.user
+        passenger=request.user
     ).select_related('driver').order_by('-booking_time')[:50]
 
     trips = []

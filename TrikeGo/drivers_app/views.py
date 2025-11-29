@@ -20,7 +20,7 @@ from booking_app.models import Booking, DriverLocation
 from booking_app.services import RoutingService
 from booking_app.utils import ensure_booking_stops, pickup_within_detour, seats_available
 from drivers_app.forms import TricycleForm
-from user_app.models import Driver, Rider
+from user_app.models import Driver, Passenger
 try:
     from notifications_app.services import dispatch_notification, NotificationMessage
 except Exception:
@@ -199,12 +199,12 @@ def accept_ride(request, booking_id):
             return JsonResponse({'status': 'error', 'message': msg}, status=500)
         return redirect('drivers:driver_dashboard')
 
-    rider_active = Booking.objects.filter(
-        rider=booking.rider,
+    passenger_active = Booking.objects.filter(
+        passenger=booking.passenger,
         status__in=['accepted', 'on_the_way', 'started'],
     ).exists()
-    if rider_active:
-        msg = 'Rider already has an active trip.'
+    if passenger_active:
+        msg = 'Passenger already has an active trip.'
         messages.error(request, msg)
         if _wants_json(request):
             return JsonResponse({'status': 'error', 'message': msg}, status=400)
@@ -240,7 +240,7 @@ def accept_ride(request, booking_id):
     booking.start_time = timezone.now()
 
     Driver.objects.filter(user=request.user).update(status='In_trip')
-    Rider.objects.filter(user=booking.rider).update(status='In_trip')
+    Passenger.objects.filter(user=booking.passenger).update(status='In_trip')
 
     try:
         driver_location = DriverLocation.objects.get(driver=request.user)
@@ -251,7 +251,7 @@ def accept_ride(request, booking_id):
 
         route_info = routing_service.calculate_route(start_coords, pickup_coords)
 
-        if route_info:
+        if route_info: 
             routing_service.save_route_snapshot(booking, route_info)
             booking.estimated_distance = Decimal(str(route_info['distance']))
             booking.estimated_duration = route_info['duration'] // 60
@@ -284,7 +284,7 @@ def accept_ride(request, booking_id):
                 'payment_verified': booking.payment_verified,
             },
         })
-    # Push notification: inform the rider that a driver accepted
+    # Push notification: inform the passenger that a driver accepted
     try:
         if dispatch_notification and NotificationMessage:
             msg = NotificationMessage(
@@ -292,7 +292,7 @@ def accept_ride(request, booking_id):
                 body=f"Your ride #{booking.id} was accepted by a driver. They'll arrive soon.",
                 data={'booking_id': booking.id, 'type': 'ride_accepted'},
             )
-            dispatch_notification([booking.rider.id], msg, topics=['rider'])
+            dispatch_notification([booking.passenger.id], msg, topics=['passenger'])
     except Exception:
         # Do not fail the request if notification sending has issues
         pass
@@ -317,10 +317,10 @@ def cancel_accepted_booking(request, booking_id):
 
         next_status = 'In_trip' if _driver_has_active_bookings(request.user) else 'Online'
         Driver.objects.filter(user=request.user).update(status=next_status)
-        Rider.objects.filter(user=booking.rider).update(status='Available')
+        Passenger.objects.filter(user=booking.passenger).update(status='Available')
         msg = 'You have cancelled your acceptance. The booking is now available again.'
         messages.success(request, msg)
-        # Notify rider that driver cancelled acceptance
+        # Notify passenger that driver cancelled acceptance
         try:
             if dispatch_notification and NotificationMessage:
                 note = NotificationMessage(
@@ -328,7 +328,7 @@ def cancel_accepted_booking(request, booking_id):
                     body=f"Driver has cancelled acceptance for ride #{booking.id}. We're looking for another driver.",
                     data={'booking_id': booking.id, 'type': 'driver_cancelled'},
                 )
-                dispatch_notification([booking.rider.id], note, topics=['rider'])
+                dispatch_notification([booking.passenger.id], note, topics=['passenger'])
         except Exception:
             pass
         if _wants_json(request):
@@ -359,7 +359,7 @@ def complete_booking(request, booking_id):
 
         next_status = 'In_trip' if _driver_has_active_bookings(request.user) else 'Online'
         Driver.objects.filter(user=request.user).update(status=next_status)
-        Rider.objects.filter(user=booking.rider).update(status='Available')
+        Passenger.objects.filter(user=booking.passenger).update(status='Available')
         msg = 'Booking marked as completed!'
         messages.success(request, msg)
         if _wants_json(request):
@@ -370,7 +370,7 @@ def complete_booking(request, booking_id):
         if _wants_json(request):
             return JsonResponse({'status': 'error', 'message': msg}, status=400)
 
-    # Notify rider that trip is completed
+    # Notify passenger that trip is completed
     try:
         if dispatch_notification and NotificationMessage:
             note = NotificationMessage(
@@ -378,7 +378,7 @@ def complete_booking(request, booking_id):
                 body=f"Your trip #{booking.id} is completed. Thank you for riding with us.",
                 data={'booking_id': booking.id, 'type': 'trip_completed'},
             )
-            dispatch_notification([booking.rider.id], note, topics=['rider'])
+            dispatch_notification([booking.passenger.id], note, topics=['passenger'])
     except Exception:
         pass
 
@@ -420,7 +420,7 @@ def get_driver_trip_history(request):
 
     queryset = (
         Booking.objects.filter(driver=request.user)
-        .select_related('rider')
+        .select_related('passenger')
         .order_by('-booking_time')
     )
 
@@ -439,7 +439,7 @@ def get_driver_trip_history(request):
             'status': booking.status,
             'date': booking.booking_time.strftime('%b %d, %Y %I:%M %p'),
             'paymentVerified': booking.payment_verified,
-            'riderName': booking.rider.get_full_name() if booking.rider else 'Unknown',
+            'passengerName': booking.passenger.get_full_name() if booking.passenger else 'Unknown',
             'distanceKm': float(booking.estimated_distance) if booking.estimated_distance is not None else None,
         })
 
@@ -462,7 +462,7 @@ def available_rides_api(request):
     rides = []
     pending_bookings = (
         Booking.objects.filter(status='pending', driver__isnull=True)
-        .select_related('rider')
+        .select_related('passenger')
         .order_by('booking_time')[:30]
     )
 
@@ -472,9 +472,9 @@ def available_rides_api(request):
 
     for booking in pending_bookings:
         try:
-            rider_name = booking.rider.get_full_name().strip() or booking.rider.username
+            passenger_name = booking.passenger.get_full_name().strip() or booking.passenger.username
         except Exception:
-            rider_name = 'Passenger'
+            passenger_name = 'Passenger'
 
         ride_data = {
             'id': booking.id,
@@ -488,7 +488,7 @@ def available_rides_api(request):
             'fare_display': f"₱{booking.fare:.2f}" if booking.fare is not None else None,
             'estimated_distance_km': float(booking.estimated_distance) if booking.estimated_distance is not None else None,
             'estimated_duration_min': booking.estimated_duration,
-            'rider_name': rider_name,
+            'passenger_name': passenger_name,
         }
         rides.append(ride_data)
 
@@ -623,11 +623,11 @@ def update_driver_location(request):
 
 @login_required
 def get_driver_location(request, booking_id):
-    if not _ensure_driver(request) and request.user.trikego_user != 'R':
+    if not _ensure_driver(request) and request.user.trikego_user != 'P':
         return JsonResponse({'status': 'error', 'message': 'Permission denied.'}, status=403)
 
     booking = get_object_or_404(Booking, id=booking_id)
-    if request.user != booking.rider and request.user != booking.driver:
+    if request.user != booking.passenger and request.user != booking.driver:
         return JsonResponse({'status': 'error', 'message': 'Permission denied.'}, status=403)
     if not booking.driver:
         return JsonResponse({'status': 'error', 'message': 'No driver assigned yet.'}, status=404)

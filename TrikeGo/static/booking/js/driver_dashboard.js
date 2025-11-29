@@ -453,7 +453,7 @@
                 card.className = 'driver-ride-card';
                 card.setAttribute('data-booking-id', ride.id);
 
-                const riderName = ride.rider_name || 'Passenger';
+                const passengerName = ride.passenger_name || 'Passenger';
                 const passengers = Number(ride.passengers || 1);
                 const seatsLabel = passengers === 1 ? '1 passenger' : `${passengers} passengers`;
                 const fareDisplay = ride.fare_display || (Number.isFinite(ride.fare) ? `₱${Number(ride.fare).toFixed(2)}` : 'Fare pending');
@@ -472,7 +472,7 @@
                 card.innerHTML = `
                     <div class="driver-ride-card__top">
                         <div>
-                            <span class="driver-ride-card__rider">${escapeHtml(riderName)}</span>
+                            <span class="driver-ride-card__passenger">${escapeHtml(passengerName)}</span>
                             <span class="driver-ride-card__seats">${escapeHtml(seatsLabel)}</span>
                         </div>
                         <div class="driver-ride-card__fare">
@@ -953,7 +953,7 @@
             const li = document.createElement('li');
             li.className = 'booking-summary-item';
 
-            const riderName = booking.riderName || 'Passenger';
+            const passengerName = booking.passengerName || 'Passenger';
             const passengerCount = Number(booking.passengers) || 1;
             const seatsLabel = passengerCount === 1 ? '1 seat' : `${passengerCount} seats`;
             const statusText = booking.status ? booking.status.replace(/_/g, ' ').toUpperCase() : '';
@@ -969,7 +969,7 @@
             li.innerHTML = `
                 <div style="flex:1;">
                     <strong>Booking #${escapeHtml(String(bookingId))}</strong>
-                    <div class="meta">${escapeHtml(riderName)} • ${escapeHtml(seatsLabel)}${statusText ? ` • ${escapeHtml(statusText)}` : ''}</div>
+                    <div class="meta">${escapeHtml(passengerName)} • ${escapeHtml(seatsLabel)}${statusText ? ` • ${escapeHtml(statusText)}` : ''}</div>
                     ${extraMetaHtml}
                 </div>
                 <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">

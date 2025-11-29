@@ -80,7 +80,7 @@ def driver_statistics_summary(request):
 
     total_rides = driver_bookings.count()
     completed_rides = driver_bookings.filter(status="completed").count()
-    cancelled_rides = driver_bookings.filter(status__in=["cancelled_by_driver", "cancelled_by_rider"]).count()
+    cancelled_rides = driver_bookings.filter(status__in=["cancelled_by_driver", "cancelled_by_passenger"]).count()
     active_rides = driver_bookings.filter(status__in=["pending", "accepted", "on_the_way", "started"]).count()
 
     completion_rate = (completed_rides / total_rides * 100) if total_rides else 0

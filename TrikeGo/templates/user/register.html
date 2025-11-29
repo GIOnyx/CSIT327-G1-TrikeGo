@@ -17,7 +17,7 @@
           <h2>Create your Driver Account</h2>
           <p class="sub">Join TrikeGo as a driver and start earning.</p>
         {% else %}
-          <h2>Create your Rider Account</h2>
+          <h2>Create your Passenger Account</h2>
           <p class="sub">Join TrikeGo to get affordable rides.</p>
         {% endif %}
         
@@ -61,14 +61,14 @@
           {% endif %}
         
           <button type="submit" class="btn primary wide">
-            {% if user_type == 'driver' %}Next{% else %}Create Rider Account{% endif %}
+            {% if user_type == 'driver' %}Next{% else %}Create Passenger Account{% endif %}
           </button>
         </form>
         
         <p class="foot">
           Already have an account? <a href="{% url 'user:landing' %}">Log in</a>
           {% if user_type == 'driver' %}
-            | <a href="{% url 'user:register' %}?type=rider">Register as Rider</a>
+            | <a href="{% url 'user:register' %}?type=passenger">Register as Passenger</a>
           {% else %}
             | <a href="{% url 'user:register' %}?type=driver">Register as Driver</a>
           {% endif %}

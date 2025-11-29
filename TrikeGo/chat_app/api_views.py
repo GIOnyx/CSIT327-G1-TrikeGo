@@ -41,8 +41,8 @@ def get_messages(request, booking_id):
     """Return messages visible to everyone in the driver's active trip."""
     booking = get_object_or_404(Booking, id=booking_id)
 
-    # Permission: only the rider tied to the booking, or the driver handling it.
-    if request.user not in [booking.rider, booking.driver]:
+    # Permission: only the passenger tied to the booking, or the driver handling it.
+    if request.user not in [booking.passenger, booking.driver]:
         return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
 
     if not _chat_can_read(booking):
@@ -62,7 +62,7 @@ def get_messages(request, booking_id):
 
     messages = (
         ChatMessage.objects.filter(booking__in=linked_bookings)
-        .select_related('booking', 'booking__rider', 'booking__driver', 'sender')
+        .select_related('booking', 'booking__passenger', 'booking__driver', 'sender')
         .order_by('timestamp')
     )
 
@@ -71,7 +71,7 @@ def get_messages(request, booking_id):
         sender_display = msg.sender.get_full_name() or msg.sender.username
         trip_driver = msg.booking.driver
         sender_role = 'Driver' if trip_driver and msg.sender_id == trip_driver.id else 'Passenger'
-        rider_name = msg.booking.rider.get_full_name() or msg.booking.rider.username if msg.booking.rider else 'Passenger'
+        passenger_name = msg.booking.passenger.get_full_name() or msg.booking.passenger.username if msg.booking.passenger else 'Passenger'
         data.append({
             'id': msg.id,
             'message': msg.message,
@@ -81,7 +81,7 @@ def get_messages(request, booking_id):
             'sender_display_name': sender_display,
             'sender_role': sender_role,
             'booking_id': msg.booking_id,
-            'booking_label': rider_name,
+            'booking_label': passenger_name,
         })
 
     return Response({'messages': data})
@@ -90,10 +90,10 @@ def get_messages(request, booking_id):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def post_message(request, booking_id):
-    """Create a message for a booking (only rider or driver may post)."""
+    """Create a message for a booking (only passenger or driver may post)."""
     booking = get_object_or_404(Booking, id=booking_id)
 
-    if request.user not in [booking.rider, booking.driver]:
+    if request.user not in [booking.passenger, booking.driver]:
         return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
 
     allowed_statuses = ['accepted', 'on_the_way', 'started']
@@ -114,8 +114,8 @@ def post_message(request, booking_id):
     try:
         if dispatch_notification and NotificationMessage:
             recipients = set()
-            if booking.rider and booking.rider.id != request.user.id:
-                recipients.add(booking.rider.id)
+            if booking.passenger and booking.passenger.id != request.user.id:
+                recipients.add(booking.passenger.id)
             if booking.driver and booking.driver.id != request.user.id:
                 recipients.add(booking.driver.id)
             
@@ -126,13 +126,13 @@ def post_message(request, booking_id):
                     body=message_text if len(message_text) < 240 else message_text[:236] + '...',
                     data={'booking_id': booking.id, 'type': 'chat_message', 'chat_id': msg.id},
                 )
-                dispatch_notification(list(recipients), notification_msg, topics=['rider', 'driver'])
+                dispatch_notification(list(recipients), notification_msg, topics=['passenger', 'driver'])
     except Exception:
         pass  # Don't fail message creation if notification fails
 
     sender_display = msg.sender.get_full_name() or msg.sender.username
     sender_role = 'Driver' if booking.driver and msg.sender_id == booking.driver.id else 'Passenger'
-    rider_name = booking.rider.get_full_name() or booking.rider.username if booking.rider else 'Passenger'
+    passenger_name = booking.passenger.get_full_name() or booking.passenger.username if booking.passenger else 'Passenger'
 
     return Response({
         'id': msg.id,
@@ -143,5 +143,5 @@ def post_message(request, booking_id):
         'sender_display_name': sender_display,
         'sender_role': sender_role,
         'booking_id': msg.booking_id,
-        'booking_label': rider_name,
+        'booking_label': passenger_name,
     }, status=status.HTTP_201_CREATED)

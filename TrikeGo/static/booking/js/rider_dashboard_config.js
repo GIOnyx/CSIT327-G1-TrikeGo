@@ -28,5 +28,5 @@
         })
         .filter(Boolean);
 
-    window.RIDER_DASH_CONFIG = config;
+    window.PASSENGER_DASH_CONFIG = config;
 })();

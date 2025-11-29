@@ -1,6 +1,6 @@
 (function () {
     function getCsrfToken(form) {
-        const configToken = window.RIDER_DASH_CONFIG && window.RIDER_DASH_CONFIG.csrfToken;
+        const configToken = window.PASSENGER_DASH_CONFIG && window.PASSENGER_DASH_CONFIG.csrfToken;
         if (configToken) {
             return configToken;
         }
@@ -105,7 +105,7 @@
                         successBanner.style.opacity = '0';
                         setTimeout(() => successBanner.remove(), 350);
                     }, 4000);
-                    document.dispatchEvent(new CustomEvent('rider:ratingSubmitted', { detail: payload }));
+                    document.dispatchEvent(new CustomEvent('passenger:ratingSubmitted', { detail: payload }));
                     if (submitBtn) {
                         try { submitBtn.dispatchEvent(new CustomEvent('single-click-success', { bubbles: true })); } catch (e) {}
                         try {

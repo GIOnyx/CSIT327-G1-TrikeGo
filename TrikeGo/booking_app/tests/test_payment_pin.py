@@ -144,10 +144,10 @@ class PaymentPINAPITest(TestCase):
         
         # Create rider and driver users
         self.rider = CustomUser.objects.create_user(
-            username='rider1',
-            email='rider1@test.com',
+            username='passenger1',
+            email='passenger1@test.com',
             password='testpass123',
-            trikego_user='R'
+            trikego_user='P'
         )
         self.driver = CustomUser.objects.create_user(
             username='driver1',
@@ -158,7 +158,7 @@ class PaymentPINAPITest(TestCase):
         
         # Create a booking
         self.booking = Booking.objects.create(
-            rider=self.rider,
+            passenger=self.passenger,
             driver=self.driver,
             pickup_address="Location A",
             pickup_latitude=Decimal('10.123456'),
@@ -188,9 +188,9 @@ class PaymentPINAPITest(TestCase):
         self.assertIsNotNone(self.booking.payment_pin_hash)
         self.assertIsNotNone(self.booking.payment_pin_expires_at)
     
-    def test_generate_pin_as_rider_forbidden(self):
-        """Test that riders cannot generate PIN"""
-        self.client.force_authenticate(user=self.rider)
+    def test_generate_pin_as_passenger_forbidden(self):
+        """Test that passengers cannot generate PIN"""
+        self.client.force_authenticate(user=self.passenger)
         url = reverse('booking:generate_payment_pin', kwargs={'booking_id': self.booking.id})
         
         response = self.client.post(url, {})
@@ -238,7 +238,7 @@ class PaymentPINAPITest(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn('already verified', response.data['message'].lower())
     
-    def test_verify_pin_as_rider_success(self):
+    def test_verify_pin_as_passenger_success(self):
         """Test successful PIN verification by rider"""
         # First generate PIN as driver
         self.client.force_authenticate(user=self.driver)
@@ -246,7 +246,7 @@ class PaymentPINAPITest(TestCase):
         gen_response = self.client.post(gen_url, {})
         pin = gen_response.data['pin']
         
-        # Now verify as rider
+        # Now verify as passenger
         self.client.force_authenticate(user=self.rider)
         verify_url = reverse('booking:verify_payment_pin', kwargs={'booking_id': self.booking.id})
         verify_response = self.client.post(verify_url, {'pin': pin})

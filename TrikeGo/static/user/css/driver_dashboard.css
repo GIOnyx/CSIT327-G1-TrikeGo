@@ -289,7 +289,7 @@ body {
 }
 
 /* Styles for custom div icons used in driver and booking views */
-.driver-marker div, .pickup-marker div, .dest-marker div, .rider-marker div {
+.driver-marker div, .pickup-marker div, .dest-marker div, .passenger-marker div {
   box-shadow: 0 2px 6px rgba(0,0,0,0.25);
 }
 
@@ -327,7 +327,7 @@ body {
   border-radius: 50%;
   border: 2px solid #ffffff;
 }
-.rider-marker .marker-inner { background: #ffc107; width: 24px; height: 24px; border-radius: 50%; border: 2px solid white; }
+.passenger-marker .marker-inner { background: #ffc107; width: 24px; height: 24px; border-radius: 50%; border: 2px solid white; }
 
 /* Map legend */
 .map-legend {
@@ -528,7 +528,7 @@ body.sidebar-expanded .sidebar-content { display: block; }
 .nav-body { flex: 1; display:flex; flex-direction:column; }
 .nav-bar { display:flex; flex-direction:column; height:100%; }
 
-/* new: make rider name more prominent for contrast */
+/* new: make passenger name more prominent for contrast */
 .sidebar-content .sidebar-rides li .ride-title { color: #0b2638; font-weight: 700; font-size: 14px; }
 .sidebar-content .sidebar-rides li .ride-meta { color: #34495e; }
 
@@ -546,7 +546,7 @@ body.show-rides .logout-form { display: none !important; }
 .sidebar-content .sidebar-rides .btn.btn-success { background: #2ecc71; }
 .sidebar-content .sidebar-rides .btn.btn-secondary { background: #6c757d; }
 
-/* Driver booking card styling (match rider card) */
+/* Driver booking card styling (match passenger card) */
 /* Position the booking card so it sits to the right of the left rail. Use calc() so
    it respects the compact rail (72px) and the expanded rail (320px) via body.sidebar-expanded. */
 .driver-info-card {

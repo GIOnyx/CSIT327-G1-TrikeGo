@@ -12,7 +12,7 @@
     data-user-id="{{ user.id|default:'' }}"
     data-csrf-token="{{ csrf_token }}"
     data-cancel-url="{% url 'booking:cancel_booking' booking.id %}"
-    data-is-rider="{% if user == booking.rider %}true{% else %}false{% endif %}"
+    data-is-passenger="{% if user == booking.passenger %}true{% else %}false{% endif %}"
     data-booking-status="{{ booking.status }}"
     data-payment-verified="{{ booking.payment_verified|yesno:'true,false' }}"
 >
@@ -28,8 +28,8 @@
             {% endif %}
         </div>
 
-        <!-- Payment PIN Verification Section (Rider View) -->
-        {% if user == booking.rider and booking.status == 'started' %}
+        <!-- Payment PIN Verification Section (Passenger View) -->
+        {% if user == booking.passenger and booking.status == 'started' %}
         <div class="payment-verification-section" id="payment-verification-{{ booking.id }}" style="margin-top: 20px; padding: 20px; border: 1px solid #ddd; border-radius: 8px; background: #f8f9fa;">
             {% if not booking.payment_verified %}
                 <!-- Waiting for PIN -->
@@ -97,16 +97,16 @@
             <button id="cancelBtn" class="btn btn-danger">Cancel Booking</button>
         {% endif %}
 
-        {# Chat UI: visible only to rider or driver while booking is accepted/on_the_way/started #}
+        {# Chat UI: visible only to passenger or driver while booking is accepted/on_the_way/started #}
         {% if user %}
-            {% if user == booking.rider or user == booking.driver %}
+            {% if user == booking.passenger or user == booking.driver %}
                 {% if booking.status == 'accepted' or booking.status == 'on_the_way' or booking.status == 'started' %}
                 <section id="chat" style="margin-top:20px;">
                     <h2>Chat with
-                        {% if user == booking.rider and booking.driver %}
+                        {% if user == booking.passenger and booking.driver %}
                             {{ booking.driver.username }}
                         {% else %}
-                            {{ booking.rider.username }}
+                            {{ booking.passenger.username }}
                         {% endif %}
                     </h2>
                     <div id="chatMessages" style="border:1px solid #ddd; padding:10px; height:300px; overflow:auto; background:#fafafa;">
@@ -122,13 +122,13 @@
             {% endif %}
         {% endif %}
 
-        <a href="{% url 'user:rider_dashboard' %}" class="btn" style="background-color: #6c757d; color: white;">Back to Dashboard</a>
+        <a href="{% url 'user:passenger_dashboard' %}" class="btn" style="background-color: #6c757d; color: white;">Back to Dashboard</a>
 
         <div id="message"></div>
     </div>
 
     <script src="{% static 'booking/js/booking_detail_config.js' %}"></script>
     <script src="{% static 'booking/js/booking_detail.js' %}?v=1"></script>
-    <script src="{% static 'booking/js/rider_payment_pin.js' %}"></script>
+    <script src="{% static 'booking/js/passenger_payment_pin.js' %}"></script>
 </body>
 </html>

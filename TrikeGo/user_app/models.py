@@ -5,13 +5,13 @@ from booking_app.models import RatingAndFeedback
 
 class CustomUser(AbstractUser):
     USER_TYPES = (
-        ('R', 'Rider'),
+        ('P', 'Passenger'),
         ('A', 'Admin'),
         ('D', 'Driver'),
     )
     
     phone = models.CharField(max_length=20, blank=True, null=True)
-    trikego_user = models.CharField(max_length=1, choices=USER_TYPES, default='R')
+    trikego_user = models.CharField(max_length=1, choices=USER_TYPES, default='P')
 
 
 class Admin(models.Model):
@@ -68,7 +68,7 @@ class Driver(models.Model):
 class Tricycle(models.Model):
     plate_number = models.CharField(max_length=32, unique=True)
     color = models.CharField(max_length=32)
-    # Maximum number of passengers this tricycle can carry. Default to 1 for single-rider trikes.
+    # Maximum number of passengers this tricycle can carry. Default to 1 for single-passenger trikes.
     max_capacity = models.PositiveSmallIntegerField(default=1)
     driver = models.ForeignKey(Driver, on_delete=models.CASCADE, related_name='tricycles')
     image_url = models.URLField(blank=True, null=True)
@@ -84,13 +84,13 @@ class Tricycle(models.Model):
     def __str__(self):
         return f"Trike {self.plate_number} ({self.color})"
 
-class Rider(models.Model):
+class Passenger(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, null=True, blank=True)
     loyalty_points = models.IntegerField(default=0)
-    # --- NEW FIELDS FOR RIDER TRACKING ---
+    # --- NEW FIELDS FOR PASSENGER TRACKING ---
     current_latitude = models.DecimalField(max_digits=18, decimal_places=15, null=True, blank=True)
     current_longitude = models.DecimalField(max_digits=18, decimal_places=15, null=True, blank=True)
-    # Rider availability status
+    # Passenger availability status
     STATUS_CHOICES = (
         ('Available', 'Available'),
         ('In_trip', 'In trip'),

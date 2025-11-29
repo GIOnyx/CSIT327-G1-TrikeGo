@@ -49,7 +49,6 @@ def seats_available(driver_user, additional_seats: int = 1) -> bool:
 
     return (active_seats + int(additional_seats or 1)) <= max_capacity
 
-
 def pickup_within_detour(driver_user, pickup_lat: float, pickup_lon: float, max_km: float = 0.5) -> bool:
     """Simple option A detour check: return True if pickup is within `max_km` of any point on the driver's
     current route approximation (driver current location + active bookings' pickup/destination points).
@@ -623,7 +622,7 @@ def build_driver_itinerary(driver_user) -> Dict[str, object]:
             'stopId': str(stop.stop_uid),
             'type': stop.stop_type,
             'status': stop.status,
-            'passengerName': stop.booking.rider.get_full_name() or stop.booking.rider.username,
+            'passengerName': stop.booking.passenger.get_full_name() or stop.booking.passenger.username,
             'passengerCount': stop.passenger_count,
             'address': stop.address,
             'note': stop.note,
@@ -743,7 +742,7 @@ def build_driver_itinerary(driver_user) -> Dict[str, object]:
         booking_summaries.append({
             'bookingId': booking_id,
             'status': booking.status,
-            'riderName': booking.rider.get_full_name() or booking.rider.username,
+            'passengerName': booking.passenger.get_full_name() or booking.ripassenger.username,
             'fare': float(quantized) if quantized is not None else (float(fare_decimal) if fare_decimal is not None else None),
             'fareDisplay': fare_display,
             'passengers': booking_passengers.get(booking_id, int(getattr(booking, 'passengers', 1) or 1)),

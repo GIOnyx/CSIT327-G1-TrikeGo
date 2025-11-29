@@ -4,7 +4,7 @@ from booking_app.models import RatingAndFeedback
 
 
 class RatingForm(forms.ModelForm):
-    """Collect rider feedback for a completed booking."""
+    """Collect passenger feedback for a completed booking."""
 
     rating_value = forms.ChoiceField(
         choices=RatingAndFeedback.RATING_CHOICES,

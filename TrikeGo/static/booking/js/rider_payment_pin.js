@@ -1,16 +1,16 @@
 /**
- * Rider Payment PIN Verification
- * Handles PIN entry and verification for riders
+ * Passenger Payment PIN Verification
+ * Handles PIN entry and verification for passengers
  */
 
-class RiderPaymentPIN {
+class PassengerPaymentPIN {
     constructor(bookingId) {
         this.bookingId = bookingId;
         this.pollInterval = null;
         
         // Register instance for SW message dispatch
-        window.__riderPaymentPINInstances = window.__riderPaymentPINInstances || {};
-        window.__riderPaymentPINInstances[this.bookingId] = this;
+        window.__passengerPaymentPINInstances = window.__passengerPaymentPINInstances || {};
+        window.__passengerPaymentPINInstances[this.bookingId] = this;
 
         this.init();
     }
@@ -157,14 +157,14 @@ class RiderPaymentPIN {
     }
 }
 
-// Initialize if on booking detail page as rider
+// Initialize if on booking detail page as passenger
 document.addEventListener('DOMContentLoaded', function() {
     if (window.BOOKING_DETAIL_CONFIG) {
         const config = window.BOOKING_DETAIL_CONFIG;
         
-        // Only initialize if rider and booking is started and not yet verified
-        if (config.isRider && config.bookingStatus === 'started' && !config.paymentVerified) {
-            new RiderPaymentPIN(config.bookingId);
+        // Only initialize if passenger and booking is started and not yet verified
+        if (config.isPassenger && config.bookingStatus === 'started' && !config.paymentVerified) {
+            new PassengerPaymentPIN(config.bookingId);
         }
     }
 });
@@ -179,7 +179,7 @@ if (navigator.serviceWorker && navigator.serviceWorker.addEventListener) {
                 const type = data && data.type;
                 const bookingId = data && data.booking_id;
                 if (!bookingId) return;
-                const inst = window.__riderPaymentPINInstances && window.__riderPaymentPINInstances[bookingId];
+                const inst = window.__passengerPaymentPINInstances && window.__passengerPaymentPINInstances[bookingId];
                 if (!inst) return;
                 if (type === 'payment_verified') {
                     inst.onPaymentVerified && inst.onPaymentVerified();

@@ -33,7 +33,7 @@
 
     function roleToTopics(role) {
         if (!role) return ['general'];
-        const map = { 'R': 'rider', 'D': 'driver', 'A': 'admin' };
+        const map = { 'P': 'passenger', 'D': 'driver', 'A': 'admin' };
         return [map[role] || role.toLowerCase()];
     }
 

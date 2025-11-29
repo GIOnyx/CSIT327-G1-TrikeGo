@@ -25,7 +25,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         user = self.scope.get('user')
         if not user or not user.is_authenticated:
             await self.close()
-            return
+            return 
 
         await self.channel_layer.group_add(self.group_name, self.channel_name)
         await self.accept()
@@ -89,8 +89,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
             chat = ChatMessage.objects.select_related('booking', 'sender').get(id=chat_id)
             booking = chat.booking
             recipients = set()
-            if booking.rider and booking.rider.id != sender_id:
-                recipients.add(booking.rider.id)
+            if booking.passenger and booking.passenger.id != sender_id:
+                recipients.add(booking.passenger.id)
             if booking.driver and booking.driver.id != sender_id:
                 recipients.add(booking.driver.id)
             if not recipients:
@@ -105,7 +105,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 body=body if len(body) < 240 else body[:236] + '...',
                 data={'booking_id': booking.id, 'type': 'chat_message', 'chat_id': chat.id},
             )
-            # Send to both rider and driver topics since we don't know which role each recipient has
-            dispatch_notification(list(recipients), msg, topics=['rider', 'driver'])
+            # Send to both passenger and driver topics since we don't know which role each recipient has
+            dispatch_notification(list(recipients), msg, topics=['passenger', 'driver'])
         except Exception:
             return
