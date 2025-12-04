@@ -1,20 +1,20 @@
 (function () {
-    const modal = document.getElementById('rider-payment-pin-modal');
+    const modal = document.getElementById('passenger-payment-pin-modal');
     if (!modal) {
         return;
     }
 
-    const modalFare = document.getElementById('rider-modal-fare');
-    const pinInput = document.getElementById('rider-pin-input');
-    const verifyBtn = document.getElementById('rider-verify-pin-btn');
-    const closeBtn = document.getElementById('rider-modal-close-btn');
-    const errorMsg = document.getElementById('rider-pin-error');
+    const modalFare = document.getElementById('passenger-modal-fare');
+    const pinInput = document.getElementById('passenger-pin-input');
+    const verifyBtn = document.getElementById('passenger-verify-pin-btn');
+    const closeBtn = document.getElementById('passenger-modal-close-btn');
+    const errorMsg = document.getElementById('passenger-pin-error');
     const attemptsCount = document.getElementById('attempts-count');
-    const waitingSection = document.getElementById('rider-pin-waiting-section');
-    const entrySection = document.getElementById('rider-pin-entry-section');
-    const successSection = document.getElementById('rider-pin-success-section');
+    const waitingSection = document.getElementById('passenger-pin-waiting-section');
+    const entrySection = document.getElementById('passenger-pin-entry-section');
+    const successSection = document.getElementById('passenger-pin-success-section');
 
-    const config = window.RIDER_DASH_CONFIG || {};
+    const config = window.PASSENGER_DASH_CONFIG || {};
     const pending = Array.isArray(config.pendingPaymentBookings) ? config.pendingPaymentBookings : [];
 
     let currentBookingId = null;
@@ -240,7 +240,7 @@
         clearPolling();
     });
 
-    window.showRiderPaymentPINModal = function (bookingId, fare) {
+    window.showPassengerPaymentPINModal = function (bookingId, fare) {
         showModal(bookingId, fare);
         startPolling();
     };

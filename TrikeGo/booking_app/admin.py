@@ -3,14 +3,14 @@ from .models import Booking, DriverLocation, RouteSnapshot
 
 @admin.register(Booking)
 class BookingAdmin(admin.ModelAdmin):
-    list_display = ['id', 'rider', 'driver', 'status', 'pickup_address', 'destination_address', 'booking_time', 'estimated_arrival']
+    list_display = ['id', 'passenger', 'driver', 'status', 'pickup_address', 'destination_address', 'booking_time', 'estimated_arrival']
     list_filter = ['status', 'booking_time']
-    search_fields = ['rider__username', 'driver__username', 'pickup_address', 'destination_address']
+    search_fields = ['passenger__username', 'driver__username', 'pickup_address', 'destination_address']
     readonly_fields = ['booking_time', 'estimated_distance', 'estimated_duration']
     
     fieldsets = (
         ('Basic Information', {
-            'fields': ('rider', 'driver', 'status', 'booking_time')
+            'fields': ('passenger', 'driver', 'status', 'booking_time')
         }),
         ('Pickup Location', {
             'fields': ('pickup_address', 'pickup_latitude', 'pickup_longitude')

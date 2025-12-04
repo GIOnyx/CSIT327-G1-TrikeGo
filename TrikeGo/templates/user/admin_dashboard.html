@@ -36,7 +36,7 @@
   <main class="admin-content">
     <div class="tabs" role="tablist" aria-label="Admin sections">
       <a href="?tab=drivers" class="tab-link{% if active_tab == 'drivers' or not active_tab %} active{% endif %}" data-tab="drivers">Drivers</a>
-      <a href="?tab=riders" class="tab-link{% if active_tab == 'riders' %} active{% endif %}" data-tab="riders">Riders</a>
+      <a href="?tab=passengers" class="tab-link{% if active_tab == 'passengers' %} active{% endif %}" data-tab="passengers">Passengers</a>
       <a href="?tab=trips" class="tab-link{% if active_tab == 'trips' %} active{% endif %}" data-tab="trips">Trips</a>
     </div>
     <section class="dashboard-section tab-panel{% if active_tab == 'drivers' or not active_tab %} active{% endif %}" data-tab="drivers">
@@ -170,11 +170,11 @@
       {% endif %}
     </section>
 
-    <section class="dashboard-section tab-panel{% if active_tab == 'riders' %} active{% endif %}" data-tab="riders">
-      <h2>Riders</h2>
+    <section class="dashboard-section tab-panel{% if active_tab == 'passengers' %} active{% endif %}" data-tab="passengers">
+      <h2>Passengers</h2>
 
       <form method="get" class="trips-filters">
-        <input type="hidden" name="tab" value="riders" />
+        <input type="hidden" name="tab" value="passengers" />
         <label>
           Search:
           <input type="text" name="r_search" value="{{ request.GET.r_search|default:'' }}" placeholder="name, username or email" />
@@ -210,36 +210,36 @@
       <table>
         <thead>
           <tr>
-            <th>Rider Name</th>
+            <th>Passenger Name</th>
             <th>Username</th>
             <th>Email</th>
             <th>Phone</th>
           </tr>
         </thead>
         <tbody>
-          {% for rider in riders_page.object_list %}
+          {% for passenger in passengers_page.object_list %}
           <tr>
-            <td>{{ rider.user.first_name }} {{ rider.user.last_name }}</td>
-            <td>{{ rider.user.username }}</td>
-            <td>{{ rider.user.email }}</td>
-            <td>{{ rider.user.phone }}</td>
+            <td>{{ passenger.user.first_name }} {{ passenger.user.last_name }}</td>
+            <td>{{ passenger.user.username }}</td>
+            <td>{{ passenger.user.email }}</td>
+            <td>{{ passenger.user.phone }}</td>
           </tr>
           {% empty %}
-          <tr><td colspan="4">No riders found.</td></tr>
+          <tr><td colspan="4">No passengers found.</td></tr>
           {% endfor %}
         </tbody>
       </table>
 
-      {% if riders_page.has_other_pages %}
+      {% if passengers_page.has_other_pages %}
       <nav class="pagination">
-        {% if riders_page.has_previous %}
-          <a href="?page_riders={{ riders_page.previous_page_number }}&amp;tab=riders">&laquo; Prev</a>
+        {% if passengers_page.has_previous %}
+          <a href="?page_passengers={{ passengers_page.previous_page_number }}&amp;tab=passengers">&laquo; Prev</a>
         {% else %}
           <span class="disabled">&laquo; Prev</span>
         {% endif %}
-        <span class="page-info">Page {{ riders_page.number }} of {{ riders_page.paginator.num_pages }}</span>
-        {% if riders_page.has_next %}
-          <a href="?page_riders={{ riders_page.next_page_number }}&amp;tab=riders">Next &raquo;</a>
+        <span class="page-info">Page {{ passengers_page.number }} of {{ passengers_page.paginator.num_pages }}</span>
+        {% if passengers_page.has_next %}
+          <a href="?page_passengers={{ passengers_page.next_page_number }}&amp;tab=passengers">Next &raquo;</a>
         {% else %}
           <span class="disabled">Next &raquo;</span>
         {% endif %}
@@ -260,7 +260,7 @@
             <option value="on_the_way" {% if filter_status == 'on_the_way' %}selected{% endif %}>on_the_way</option>
             <option value="started" {% if filter_status == 'started' %}selected{% endif %}>started</option>
             <option value="completed" {% if filter_status == 'completed' %}selected{% endif %}>completed</option>
-            <option value="cancelled_by_rider" {% if filter_status == 'cancelled_by_rider' %}selected{% endif %}>cancelled_by_rider</option>
+            <option value="cancelled_by_passenger" {% if filter_status == 'cancelled_by_passenger' %}selected{% endif %}>cancelled_by_passenger</option>
             <option value="cancelled_by_driver" {% if filter_status == 'cancelled_by_driver' %}selected{% endif %}>cancelled_by_driver</option>
             <option value="no_driver_found" {% if filter_status == 'no_driver_found' %}selected{% endif %}>no_driver_found</option>
           </select>
@@ -290,7 +290,7 @@
           <tr>
             <th>Trip ID</th>
             <th>Driver</th>
-            <th>Rider</th>
+            <th>Passenger</th>
             <th>Pickup</th>
             <th>Destination</th>
             <th>Fare</th>
@@ -310,9 +310,9 @@
                 —
               {% endif %}
             </td>
-            <td data-label="Rider">
-              {% if trip.rider %}
-                {{ trip.rider.get_full_name|default:trip.rider.username }}
+            <td data-label="Passenger">
+              {% if trip.passenger %}
+                {{ trip.passenger.get_full_name|default:trip.passenger.username }}
               {% else %}
                 —
               {% endif %}

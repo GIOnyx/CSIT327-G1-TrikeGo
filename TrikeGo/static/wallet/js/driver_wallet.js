@@ -125,7 +125,7 @@
 
 		const html = entries
 			.map((trip) => {
-				const rider = escapeHtml(trip.rider_name || '—');
+				const passenger = escapeHtml(trip.passenger_name || '—');
 				const pickup = escapeHtml(trip.pickup || '—');
 				const destination = escapeHtml(trip.destination || '—');
 				const completed = escapeHtml(trip.completed_display || '');
@@ -137,7 +137,7 @@
 							<span class="wallet-trip-amount">${formatCurrency(trip.fare)}</span>
 						</div>
 						<div class="wallet-trip-meta">
-							<span class="wallet-trip-rider">${rider}</span>
+							<span class="wallet-trip-passenger">${passenger}</span>
 							<div class="wallet-trip-route">
 								<span class="wallet-trip-label">From:</span>
 								<span class="wallet-trip-location">${pickup}</span>

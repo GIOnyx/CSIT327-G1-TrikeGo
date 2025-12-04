@@ -1,6 +1,6 @@
-// Rider dashboard JS (moved from template)
+// Passenger dashboard JS (moved from template)
 (function(){
-    const cfg = window.RIDER_DASH_CONFIG || {};
+    const cfg = window.PASSENGER_DASH_CONFIG || {};
     const ORS_API_KEY = cfg.ORS_API_KEY || '';
     const userId = cfg.userId || null;
     const csrfToken = cfg.csrfToken || '';
@@ -65,12 +65,12 @@
     }
 
     function initEmergencySOSButton() {
-        const button = document.getElementById('rider-sos-button');
+        const button = document.getElementById('passenger-sos-button');
         if (!button) return;
 
         const progressEl = button.querySelector('.sos-button__progress');
         const hintEl = button.querySelector('.sos-button__hint');
-        const liveRegion = document.getElementById('rider-sos-live-region');
+        const liveRegion = document.getElementById('passenger-sos-live-region');
         const HOLD_DURATION_MS = 3000;
 
         let holdTimeoutId = null;
@@ -287,7 +287,7 @@
         }
     }
 
-    // Chat modal helpers (rider)
+    // Chat modal helpers ()
     let _chatModalBookingId = null;
     let _chatModalPolling = null;
     let _chatModalIsOpen = false; // Track if chat is currently open
@@ -344,7 +344,7 @@
         if (window._chatModalPolling) clearInterval(window._chatModalPolling);
         // Prefer push updates when SW controls the page
         if (navigator.serviceWorker && navigator.serviceWorker.controller) {
-            console.log('Using push for rider chat updates');
+            console.log('Using push for passenger chat updates');
         } else {
             // Poll less often for chat as a fallback
             window._chatModalPolling = setInterval(loadModalMessages, 6000);
@@ -438,7 +438,7 @@ try {
         if (openTripHistoryLink) {
             openTripHistoryLink.addEventListener('click', (event) => {
                 event.preventDefault();
-                const historyIcon = document.getElementById('rider-history-icon');
+                const historyIcon = document.getElementById('passenger-history-icon');
                 if (historyIcon) {
                     historyIcon.click();
                 }
@@ -527,7 +527,7 @@ try {
         try {
             if (window.map) {
                 async function reverseGeocodeAndFill(lat, lon) {
-                    const key = ORS_API_KEY || (window.RIDER_DASH_CONFIG && window.RIDER_DASH_CONFIG.ORS_API_KEY) || '';
+                    const key = ORS_API_KEY || (window.PASSENGER_DASH_CONFIG && window.PASSENGER_DASH_CONFIG.ORS_API_KEY) || '';
                     if (!key) return null;
                     const url = `https://api.openrouteservice.org/geocode/reverse?api_key=${encodeURIComponent(key)}&point.lat=${encodeURIComponent(lat)}&point.lon=${encodeURIComponent(lon)}&size=1`;
                     try {
@@ -715,9 +715,9 @@ try {
                             loader.classList.remove('hidden');
                             loader.setAttribute('aria-hidden', 'false');
                             loaderShowing = true;
-                            console.debug('[Rider Dashboard] Stage changed from', oldStage, 'to', stage, '— showing loader');
+                            console.debug('[Passenger Dashboard] Stage changed from', oldStage, 'to', stage, '— showing loader');
                         } else {
-                            console.debug('[Rider Dashboard] Stage changed from', oldStage, 'to', stage, '— loader already shown or stage already loaded');
+                            console.debug('[Passenger Dashboard] Stage changed from', oldStage, 'to', stage, '— loader already shown or stage already loaded');
                         }
                     }
 
@@ -728,7 +728,7 @@ try {
                     const xLat = Number(info.destination_lat);
                     const xLon = Number(info.destination_lon);
 
-                    console.log('[Rider Dashboard] Driver coordinates:', { 
+                    console.log('[Passenger Dashboard] Driver coordinates:', { 
                         driver_lat: info.driver_lat, 
                         driver_lon: info.driver_lon, 
                         dLat, 
@@ -746,7 +746,7 @@ try {
                     const hasSharedItinerary = Boolean(itineraryPayload && hasStops);
                     const bookingIdNum = Number(bookingId);
                     const bookingStatusLower = (info.booking_status || '').toLowerCase();
-                    const riderOnBoard = bookingStatusLower === 'started' || bookingStatusLower === 'completed';
+                    const passengerOnBoard = bookingStatusLower === 'started' || bookingStatusLower === 'completed';
                     const bookingSummaries = Array.isArray(itineraryPayload?.bookingSummaries) ? itineraryPayload.bookingSummaries : [];
                     const itinerarySummary = bookingSummaries.find((summary) => Number(summary.bookingId) === bookingIdNum) || null;
                     const routePayload = info.route_payload || null;
@@ -773,7 +773,7 @@ try {
                             appliedFareText = fareText;
                         }
                         
-                        console.log('[Rider Dashboard] Fare data:', { 
+                        console.log('[Passenger Dashboard] Fare data:', { 
                             fare: info.fare, 
                             fare_display: info.fare_display, 
                             fareNumeric, 
@@ -785,7 +785,7 @@ try {
                             const el = document.getElementById(id);
                             if (el) {
                                 el.textContent = appliedFareText;
-                                console.log(`[Rider Dashboard] Updated #${id} to:`, appliedFareText);
+                                console.log(`[Passenger Dashboard] Updated #${id} to:`, appliedFareText);
                             }
                         });
                     } catch (e) {
@@ -987,7 +987,7 @@ try {
                         }
                     } catch(e) {}
 
-                    // Update ETA and distance UI focusing on rider trip (pickup → destination)
+                    // Update ETA and distance UI focusing on passenger trip (pickup → destination)
                     try {
                         const etaLabel = document.getElementById('eta-label');
                         const etaValue = document.getElementById('eta-value');
@@ -1028,7 +1028,7 @@ try {
                             const summaryDist = Number(itinerarySummary.remainingDistanceKm);
                             if (Number.isFinite(summaryDist)) {
                                 let adjusted = summaryDist;
-                                if (!riderOnBoard && Number.isFinite(driverLegDistanceKm)) {
+                                if (!passengerOnBoard && Number.isFinite(driverLegDistanceKm)) {
                                     adjusted = Math.max(0, adjusted - driverLegDistanceKm);
                                 }
                                 tripDistanceKm = adjusted;
@@ -1038,14 +1038,14 @@ try {
                         if (tripDurationMinutes == null && itinerarySummary) {
                             let summaryDurationSec = Number(itinerarySummary.remainingDurationSec);
                             if (Number.isFinite(summaryDurationSec)) {
-                                if (!riderOnBoard && Number.isFinite(driverLegDurationSec)) {
+                                if (!passengerOnBoard && Number.isFinite(driverLegDurationSec)) {
                                     summaryDurationSec = Math.max(0, summaryDurationSec - driverLegDurationSec);
                                 }
                                 tripDurationMinutes = Math.max(0, Math.round(summaryDurationSec / 60));
                             } else {
                                 const summaryDurationMinutes = Number(itinerarySummary.remainingDurationMinutes);
                                 if (Number.isFinite(summaryDurationMinutes)) {
-                                    const adjustedMinutes = !riderOnBoard && Number.isFinite(driverLegDurationSec)
+                                    const adjustedMinutes = !passengerOnBoard && Number.isFinite(driverLegDurationSec)
                                         ? Math.max(0, summaryDurationMinutes - Math.round(driverLegDurationSec / 60))
                                         : summaryDurationMinutes;
                                     tripDurationMinutes = Math.max(0, Math.round(adjustedMinutes));
@@ -1296,7 +1296,7 @@ try {
                             const previewFare = document.getElementById('preview-fare');
                             if (previewPickup) previewPickup.textContent = pickupText; if (previewDest) previewDest.textContent = destText; if (previewFare) previewFare.textContent = 'Estimating...';
                             const previewForm = document.getElementById('preview-cancel-form'); if (previewForm) {
-                                const tpl = (window.RIDER_DASH_CONFIG && window.RIDER_DASH_CONFIG.cancelBookingUrlTemplate) || previewForm.getAttribute('data-cancel-template') || previewForm.action || '';
+                                const tpl = (window.PASSENGER_DASH_CONFIG && window.PASSENGER_DASH_CONFIG.cancelBookingUrlTemplate) || previewForm.getAttribute('data-cancel-template') || previewForm.action || '';
                                 if (tpl && tpl.indexOf('/0/') !== -1) {
                                     previewForm.action = tpl.replace('/0/', `/${bookingId}/`);
                                 } else if (tpl) {
@@ -1315,7 +1315,7 @@ try {
                 }
             } catch(e) { console.warn('Booking boot failed', e); }
 
-            // Automatic refresh: poll booking items for status/assignment changes so rider doesn't need to refresh
+            // Automatic refresh: poll booking items for status/assignment changes so passenger doesn't need to refresh
             try {
                 async function pollBookingItems() {
                     try {

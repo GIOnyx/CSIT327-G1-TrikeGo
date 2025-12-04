@@ -1,4 +1,4 @@
-// Trip History Management for Driver and Rider Dashboards
+// Trip History Management for Driver and Passenger Dashboards
 (function() {
     // Driver elements
     const historyIcon = document.getElementById('history-icon');
@@ -19,11 +19,11 @@
         endMessageShown: false,
     };
     
-    // Rider elements  
-    const riderHistoryIcon = document.getElementById('rider-history-icon');
-    const riderHistoryPanel = document.getElementById('rider-history-panel');
-    const closeRiderHistoryPanel = document.getElementById('close-rider-history-panel');
-    const riderHistoryList = document.getElementById('rider-history-list');
+    // passenger elements  
+    const passengerHistoryIcon = document.getElementById('passenger-history-icon');
+    const passengerHistoryPanel = document.getElementById('passenger-history-panel');
+    const closePassengerHistoryPanel = document.getElementById('close-passenger-history-panel');
+    const passengerHistoryList = document.getElementById('passenger-history-list');
     
     function getStatusBadge(status) {
         const mapping = {
@@ -33,7 +33,7 @@
             started: { label: 'In Progress', tone: 'progress' },
             completed: { label: 'Completed', tone: 'success' },
             cancelled: { label: 'Cancelled', tone: 'danger' },
-            cancelled_by_rider: { label: 'Cancelled (Rider)', tone: 'danger' },
+            cancelled_by_passenger: { label: 'Cancelled (Passenger)', tone: 'danger' },
             cancelled_by_driver: { label: 'Cancelled (Driver)', tone: 'danger' },
             no_driver_found: { label: 'No Driver Found', tone: 'warning' }
         };
@@ -77,8 +77,8 @@
                 </div>
                 <div class="driver-history-card__details">
                     <div class="driver-history-card__row">
-                        <span class="driver-history-card__label">rider</span>
-                        <span class="driver-history-card__value">${trip.riderName}</span>
+                        <span class="driver-history-card__label">passenger</span>
+                        <span class="driver-history-card__value">${trip.passengerName}</span>
                     </div>
                     <div class="driver-history-card__row">
                         <span class="driver-history-card__label">from:</span>
@@ -241,13 +241,13 @@
         historyList.addEventListener('scroll', handleDriverHistoryScroll);
     }
 
-    async function loadRiderTripHistory() {
-        const riderHistoryList = document.getElementById('rider-history-list');
-        if (!riderHistoryList) return;
+    async function loadPassengerTripHistory() {
+        const passengerHistoryList = document.getElementById('passenger-history-list');
+        if (!passengerHistoryList) return;
         
-        riderHistoryList.innerHTML = '<p style="text-align:center;padding:20px;">Loading...</p>';
+        passengerHistoryList.innerHTML = '<p style="text-align:center;padding:20px;">Loading...</p>';
         try {
-            const response = await fetch('/api/rider/trip-history/');
+            const response = await fetch('/api/passenger/trip-history/');
             const data = await response.json();
             if (data.status === 'success' && data.trips.length > 0) {
                 let html = '<div class="driver-history-card-list">';
@@ -287,7 +287,7 @@
                                 </div>
                             </div>
                             ${needsPayment ? `
-                                <button class="driver-history-card__action" onclick="window.showRiderPaymentPINModal(${trip.id}, ${trip.fare})">
+                                <button class="driver-history-card__action" onclick="window.showPassengerPaymentPINModal(${trip.id}, ${trip.fare})">
                                     Enter PIN to Verify Payment
                                 </button>
                             ` : ''}
@@ -295,13 +295,13 @@
                     `;
                 });
                 html += '</div>';
-                riderHistoryList.innerHTML = html;
+                passengerHistoryList.innerHTML = html;
             } else {
-                riderHistoryList.innerHTML = '<p style="text-align:center;padding:20px;color:#666;">No trip history yet</p>';
+                passengerHistoryList.innerHTML = '<p style="text-align:center;padding:20px;color:#666;">No trip history yet</p>';
             }
         } catch (error) {
             console.error('Error loading trip history:', error);
-            riderHistoryList.innerHTML = '<p style="text-align:center;padding:20px;color:#dc3545;">Failed to load trips</p>';
+            passengerHistoryList.innerHTML = '<p style="text-align:center;padding:20px;color:#dc3545;">Failed to load trips</p>';
         }
     }
     
@@ -366,9 +366,9 @@
         });
     }
     
-    // Rider history icon handler - Show overlay panel
-    if (riderHistoryIcon && riderHistoryPanel) {
-        riderHistoryIcon.addEventListener('click', function(e) {
+    // passenger history icon handler - Show overlay panel
+    if (passengerHistoryIcon && passengerHistoryPanel) {
+        passengerHistoryIcon.addEventListener('click', function(e) {
             e.preventDefault();
             if (typeof window.closeDriverWalletPanel === 'function') {
                 window.closeDriverWalletPanel();
@@ -378,19 +378,19 @@
             } else if (typeof window.closeDriverWalletPanel === 'function') {
                 window.closeDriverWalletPanel();
             }
-            riderHistoryPanel.style.display = 'block';
-            riderHistoryPanel.setAttribute('aria-hidden', 'false');
+            passengerHistoryPanel.style.display = 'block';
+            passengerHistoryPanel.setAttribute('aria-hidden', 'false');
             document.body.classList.add('history-panel-open');
-            loadRiderTripHistory();
+            loadPassengerTripHistory();
         });
     }
     
-    // Close rider panel handler
-    if (closeRiderHistoryPanel) {
-        closeRiderHistoryPanel.addEventListener('click', function() {
-            if (riderHistoryPanel) {
-                riderHistoryPanel.style.display = 'none';
-                riderHistoryPanel.setAttribute('aria-hidden', 'true');
+    // Close passenger panel handler
+    if (closePassengerHistoryPanel) {
+        closePassengerHistoryPanel.addEventListener('click', function() {
+            if (passengerHistoryPanel) {
+                passengerHistoryPanel.style.display = 'none';
+                passengerHistoryPanel.setAttribute('aria-hidden', 'true');
             }
             document.body.classList.remove('history-panel-open');
         });

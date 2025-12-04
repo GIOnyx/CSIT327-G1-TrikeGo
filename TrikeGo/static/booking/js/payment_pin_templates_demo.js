@@ -1,7 +1,7 @@
 (function () {
     const HIDE_CLASS = 'is-hidden';
     const driverControllers = new Map();
-    const riderControllers = new Map();
+    const passengerControllers = new Map();
 
     function hide(element) {
         if (element) {
@@ -153,7 +153,7 @@
         }
     }
 
-    class RiderPaymentPIN {
+    class PassengerPaymentPIN {
         constructor(bookingId, fare) {
             this.bookingId = bookingId;
             this.fare = fare;
@@ -162,9 +162,9 @@
             this.section = document.getElementById('payment-verification-section');
             this.waitingContainer = document.getElementById('waiting-for-pin-container');
             this.entryContainer = document.getElementById('pin-entry-container');
-            this.verifiedContainer = document.getElementById('rider-payment-verified-container');
-            this.fareLabelPrimary = document.getElementById('rider-fare-amount');
-            this.fareLabelSecondary = document.getElementById('rider-fare-amount-2');
+            this.verifiedContainer = document.getElementById('passenger-payment-verified-container');
+            this.fareLabelPrimary = document.getElementById('passenger-fare-amount');
+            this.fareLabelSecondary = document.getElementById('passenger-fare-amount-2');
             this.pinInput = document.getElementById('pin-input');
             this.verifyButton = document.getElementById('verify-pin-btn');
             this.errorContainer = document.getElementById('pin-error');
@@ -207,7 +207,7 @@
                     this.showEntry(payload.attempts_remaining);
                 }
             } catch (error) {
-                console.error('Error checking rider PIN status:', error);
+                console.error('Error checking passenger PIN status:', error);
             }
         }
 
@@ -267,7 +267,7 @@
 
                 this.handlePaymentVerified();
             } catch (error) {
-                console.error('Error verifying rider PIN:', error);
+                console.error('Error verifying passenger PIN:', error);
                 this.showError('Network error. Please try again.');
                 try { if (this.verifyButton && window.singleClickHelper && typeof window.singleClickHelper.clearLoading === 'function') { window.singleClickHelper.clearLoading(this.verifyButton); this.verifyButton.dataset.processing = 'false'; } } catch (err) {}
             } finally {
@@ -311,10 +311,10 @@
 
     function showPaymentVerificationSection(bookingId, fare) {
         const key = String(bookingId);
-        let instance = riderControllers.get(key);
+        let instance = passengerControllers.get(key);
         if (!instance) {
-            instance = new RiderPaymentPIN(bookingId, fare);
-            riderControllers.set(key, instance);
+            instance = new PassengerPaymentPIN(bookingId, fare);
+            passengerControllers.set(key, instance);
         }
 
         setText(instance.fareLabelPrimary, Number(fare).toFixed(2));
@@ -337,8 +337,8 @@
 
         const driverBookingId = configEl.dataset.driverBookingId;
         const driverFare = configEl.dataset.driverFare;
-        const riderBookingId = configEl.dataset.riderBookingId;
-        const riderFare = configEl.dataset.riderFare;
+        const passengerBookingId = configEl.dataset.passengerBookingId;
+        const passengerFare = configEl.dataset.passengerFare;
         const demoMode = configEl.dataset.demoMode === 'true';
 
         if (!demoMode) {
@@ -352,12 +352,12 @@
             setText(document.getElementById('driver-fare-amount'), Number(driverFare).toFixed(2));
         }
 
-        if (riderBookingId && riderFare) {
+        if (passengerBookingId && passengerFare) {
             show(document.getElementById('payment-verification-section'));
             hide(document.getElementById('pin-entry-container'));
-            hide(document.getElementById('rider-payment-verified-container'));
-            setText(document.getElementById('rider-fare-amount'), Number(riderFare).toFixed(2));
-            setText(document.getElementById('rider-fare-amount-2'), Number(riderFare).toFixed(2));
+            hide(document.getElementById('passenger-payment-verified-container'));
+            setText(document.getElementById('passenger-fare-amount'), Number(passengerFare).toFixed(2));
+            setText(document.getElementById('passenger-fare-amount-2'), Number(passengerFare).toFixed(2));
         }
     });
 })();

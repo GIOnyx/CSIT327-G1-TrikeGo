@@ -11,12 +11,12 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.AddField(
-            model_name='rider',
+            model_name='passenger',
             name='current_latitude',
             field=models.DecimalField(blank=True, decimal_places=15, max_digits=18, null=True),
         ),
         migrations.AddField(
-            model_name='rider',
+            model_name='passenger',
             name='current_longitude',
             field=models.DecimalField(blank=True, decimal_places=15, max_digits=18, null=True),
         ),

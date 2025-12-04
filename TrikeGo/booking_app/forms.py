@@ -117,7 +117,7 @@ class BookingForm(forms.ModelForm):
         return v
 
 class RatingForm(forms.ModelForm):
-    """Form for rider to submit star rating and text feedback after a trip."""
+    """Form for passenger to submit star rating and text feedback after a trip."""
 
     # Explicitly define rating_value as a field to use the choices from the model
     rating_value = forms.ChoiceField(

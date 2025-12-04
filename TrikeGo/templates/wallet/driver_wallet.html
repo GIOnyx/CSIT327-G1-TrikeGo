@@ -59,14 +59,14 @@
                 <div class="trips-table" role="table">
                     <div class="trips-row trips-row--header" role="row">
                         <span role="columnheader">Completed</span>
-                        <span role="columnheader">Rider</span>
+                        <span role="columnheader">Passenger</span>
                         <span role="columnheader">Route</span>
                         <span role="columnheader" class="trips-col--amount">Fare</span>
                     </div>
                     {% for trip in recent_trips %}
                         <div class="trips-row" role="row">
                             <span role="cell">{{ trip.booking_time|date:'M d, Y h:i A' }}</span>
-                            <span role="cell">{{ trip.rider.get_full_name|default:trip.rider.username }}</span>
+                            <span role="cell">{{ trip.passenger.get_full_name|default:trip.passenger.username }}</span>
                             <span role="cell">
                                 <span class="trip-route">{{ trip.pickup_address|default:'—' }} → {{ trip.destination_address|default:'—' }}</span>
                             </span>

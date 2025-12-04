@@ -64,7 +64,7 @@ def generate_payment_pin_endpoint(request, booking_id):
         logger.exception('Failed to save payment PIN')
         return Response({'status': 'error', 'message': 'Failed to save PIN.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    # Notify rider that a payment PIN was generated
+    # Notify passenger that a payment PIN was generated
     try:
         if dispatch_notification and NotificationMessage:
             note = NotificationMessage(
@@ -72,7 +72,7 @@ def generate_payment_pin_endpoint(request, booking_id):
                 body=f"A payment PIN has been generated for your trip #{booking.id}. Please enter it to verify payment.",
                 data={'booking_id': booking.id, 'type': 'payment_pin_generated'},
             )
-            dispatch_notification([booking.rider.id], note, topics=['rider'])
+            dispatch_notification([booking.passenger.id], note, topics=['passenger'])
     except Exception:
         pass
 
@@ -83,7 +83,7 @@ def generate_payment_pin_endpoint(request, booking_id):
 @permission_classes([IsAuthenticated])
 def verify_payment_pin_endpoint(request, booking_id):
     booking = get_object_or_404(Booking, id=booking_id)
-    if request.user.trikego_user != 'R' or booking.rider != request.user:
+    if request.user.trikego_user != 'P' or booking.passenger != request.user:
         return Response({'status': 'error', 'message': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
 
     booking.refresh_from_db()
@@ -111,20 +111,20 @@ def verify_payment_pin_endpoint(request, booking_id):
             booking_locked.status = 'completed'
             booking_locked.end_time = timezone.now()
             booking_locked.save(update_fields=['payment_verified', 'payment_verified_at', 'status', 'end_time'])
-            # Notify driver and rider that payment was verified
+            # Notify driver and passenger that payment was verified
             try:
                 if dispatch_notification and NotificationMessage:
-                    rider_msg = NotificationMessage(
+                    passenger_msg = NotificationMessage(
                         title='Payment Verified',
                         body=f"Payment for trip #{booking_locked.id} has been verified. Thank you!",
                         data={'booking_id': booking_locked.id, 'type': 'payment_verified'},
                     )
-                    dispatch_notification([booking_locked.rider.id], rider_msg, topics=['rider'])
+                    dispatch_notification([booking_locked.passenger.id], passenger_msg, topics=['passenger'])
 
                     if booking_locked.driver:
                         driver_msg = NotificationMessage(
                             title='Payment Verified',
-                            body=f"Payment for trip #{booking_locked.id} has been verified by the rider.",
+                            body=f"Payment for trip #{booking_locked.id} has been verified by the passenger.",
                             data={'booking_id': booking_locked.id, 'type': 'payment_verified'},
                         )
                         dispatch_notification([booking_locked.driver.id], driver_msg, topics=['driver'])
@@ -143,7 +143,7 @@ def verify_payment_pin_endpoint(request, booking_id):
 @permission_classes([IsAuthenticated])
 def get_payment_pin_status(request, booking_id):
     booking = get_object_or_404(Booking, id=booking_id)
-    if request.user not in [booking.rider, booking.driver]:
+    if request.user not in [booking.passenger, booking.driver]:
         return Response({'status': 'error', 'message': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
 
     booking.refresh_from_db()

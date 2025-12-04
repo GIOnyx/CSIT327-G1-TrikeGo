@@ -73,7 +73,7 @@ class DriverPaymentPIN {
         
         this.expiresAt = new Date(expiresAt);
         this.startCountdown();
-        this.showBanner('Share this PIN with the rider to confirm payment.', 'info');
+        this.showBanner('Share this PIN with the passenger to confirm payment.', 'info');
     }
     
     startCountdown() {

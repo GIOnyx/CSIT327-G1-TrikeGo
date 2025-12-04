@@ -1,6 +1,6 @@
 /**
  * Payment PIN Verification Styles
- * Styling for driver and rider payment verification UI
+ * Styling for driver and passenger payment verification UI
  */
 
 /* Payment PIN Section */
@@ -131,7 +131,7 @@
     font-size: 1.1em;
 }
 
-/* Rider Payment Verification Section */
+/* Passenger Payment Verification Section */
 .payment-verification-section {
     animation: slideIn 0.3s ease-out;
 }

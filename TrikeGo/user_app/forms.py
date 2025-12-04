@@ -2,7 +2,7 @@ from django import forms
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.core.exceptions import ValidationError
 
-from .models import CustomUser, Rider
+from .models import CustomUser, Passenger
 
 import re
 
@@ -49,7 +49,7 @@ class CustomerForm(UserCreationForm):
         self.fields['password1'].widget.attrs.update({'placeholder': 'Enter a password'})
         self.fields['password2'].widget.attrs.update({'placeholder': 'Confirm your password'})
 
-class RiderRegistrationForm(UserCreationForm):
+class PassengerRegistrationForm(UserCreationForm):
     email = forms.EmailField(
         required=True,
         widget=forms.EmailInput(attrs={

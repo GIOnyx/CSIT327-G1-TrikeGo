@@ -10,11 +10,11 @@
 <body>
     <!--
         Payment PIN Verification - Frontend Template Examples
-        Add these snippets to your driver and rider dashboard templates
+        Add these snippets to your driver and passengerr dashboard templates
     -->
     <div class="container">
         <h1 class="section-title">Payment PIN Verification UI Snippets</h1>
-        <p>Use the sections below to integrate the cash payment PIN flow into the driver and rider dashboards. All supporting styles and JavaScript live in static assets so you can copy the markup directly without inline scripts.</p>
+        <p>Use the sections below to integrate the cash payment PIN flow into the driver and passenger dashboards. All supporting styles and JavaScript live in static assets so you can copy the markup directly without inline scripts.</p>
 
         <!-- DRIVER DASHBOARD -->
         <section>
@@ -27,7 +27,7 @@
                 </div>
                 <div class="card-body">
                     <div id="generate-pin-container" class="pin-generate-container">
-                        <p class="mb-3">Trip completed! To confirm cash payment, generate a PIN and share it with the rider.</p>
+                        <p class="mb-3">Trip completed! To confirm cash payment, generate a PIN and share it with the passenger.</p>
                         <p class="text-muted mb-3">Fare: ₱<span id="driver-fare-amount">0.00</span></p>
                         <button id="generate-pin-btn" class="btn btn-primary btn-lg" data-single-click>
                             🔑 Generate Payment PIN
@@ -36,7 +36,7 @@
 
                     <div id="pin-display-container" class="pin-display-container is-hidden">
                         <div class="alert alert-info">
-                            <h6 class="mt-0 mb-0">📢 Share this PIN with the rider:</h6>
+                            <h6 class="mt-0 mb-0">📢 Share this PIN with the passenger:</h6>
                         </div>
 
                         <div class="pin-display text-center">
@@ -45,7 +45,7 @@
 
                         <div class="text-center mt-3">
                             <p class="mb-2">⏱️ Expires in: <span id="pin-countdown" class="pin-countdown">5:00</span></p>
-                            <p class="text-muted small mb-0">Waiting for rider to confirm payment…</p>
+                            <p class="text-muted small mb-0">Waiting for passenger to confirm payment…</p>
                         </div>
 
                         <div class="text-center mt-3">
@@ -67,8 +67,8 @@
 
         <!-- RIDER DASHBOARD -->
         <section>
-            <h2 class="section-title">Rider Dashboard – PIN Entry</h2>
-            <p class="text-muted">Place this card inside <code>templates/booking/rider_dashboard.html</code> when a ride is in the <code>started</code> state and awaiting payment verification.</p>
+            <h2 class="section-title">Passenger Dashboard – PIN Entry</h2>
+            <p class="text-muted">Place this card inside <code>templates/booking/passenger_dashboard.html</code> when a ride is in the <code>started</code> state and awaiting payment verification.</p>
 
             <div id="payment-verification-section" class="card mt-3 payment-verification-section is-hidden">
                 <div class="card-header bg-primary text-white">
@@ -78,7 +78,7 @@
                     <div id="waiting-for-pin-container" class="waiting-for-pin">
                         <p class="mb-3">Trip completed! Please pay the driver in cash.</p>
                         <div class="alert alert-info fare-display">
-                            <strong>Amount to Pay: ₱<span id="rider-fare-amount">0.00</span></strong>
+                            <strong>Amount to Pay: ₱<span id="passenger-fare-amount">0.00</span></strong>
                         </div>
                         <p class="text-muted">
                             <span class="spinner-border spinner-border-sm"></span>
@@ -88,7 +88,7 @@
 
                     <div id="pin-entry-container" class="is-hidden">
                         <div class="alert alert-warning fare-display">
-                            <strong>Amount Paid: ₱<span id="rider-fare-amount-2">0.00</span></strong>
+                            <strong>Amount Paid: ₱<span id="passenger-fare-amount-2">0.00</span></strong>
                         </div>
 
                         <p class="mb-3">After paying, enter the 4-digit PIN provided by the driver:</p>
@@ -117,7 +117,7 @@
                         </p>
                     </div>
 
-                    <div id="rider-payment-verified-container" class="is-hidden">
+                    <div id=passenger-payment-verified-container" class="is-hidden">
                         <div class="alert alert-success payment-verified text-center">
                             <h4 class="mt-0">✅ Payment Verified!</h4>
                             <p class="mb-0">Thank you for using TrikeGo!</p>
@@ -133,14 +133,14 @@
             <ul class="list-unstyled">
                 <li>• Include <code>static/booking/css/payment_pin.css</code> for styling.</li>
                 <li>• Load <code>static/booking/js/payment_pin_templates_demo.js</code> to expose <code>showPaymentPINSection</code> and <code>showPaymentVerificationSection</code>.</li>
-                <li>• Call these helpers when the booking status transitions to <code>started</code> and you need to prompt driver/rider interactions.</li>
+                <li>• Call these helpers when the booking status transitions to <code>started</code> and you need to prompt driver/passenger interactions.</li>
             </ul>
 
             <code>
 // Driver dashboard example
 showPaymentPINSection(bookingId, fareAmount);
 
-// Rider dashboard example
+// Passenger dashboard example
 showPaymentVerificationSection(bookingId, fareAmount);
             </code>
         </section>
@@ -150,8 +150,8 @@ showPaymentVerificationSection(bookingId, fareAmount);
          data-demo-mode="true"
          data-driver-booking-id="123"
          data-driver-fare="50.00"
-         data-rider-booking-id="123"
-         data-rider-fare="50.00"></div>
+         data-passenger-booking-id="123"
+         data-passenger-fare="50.00"></div>
 
     <script src="{% static 'booking/js/payment_pin_templates_demo.js' %}"></script>
 </body>

@@ -37,7 +37,7 @@ class UtilsTestCase(TestCase):
         self.assertFalse(far)
 
     def _create_rider(self):
-        r = User.objects.create_user(username='r1'+self._rand(), password='p', trikego_user='R')
+        r = User.objects.create_user(username='r1'+self._rand(), password='p', trikego_user='P')
         return r
     def _rand(self):
         import random

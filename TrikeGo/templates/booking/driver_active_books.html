@@ -15,7 +15,7 @@
         <div class="location-permission-content">
             <h2 id="location-prompt-title">Enable Location for Live Tracking</h2>
             <p id="location-prompt-message">
-                To share your live location with the rider, TrikeGo needs access to your device's location. Please click the button below and then select "Allow" when your browser asks for permission.
+                To share your live location with the passenger, TrikeGo needs access to your device's location. Please click the button below and then select "Allow" when your browser asks for permission.
             </p>
             <button id="enable-location-btn" class="btn-enable-location">Enable Location Tracking</button>
         </div>
@@ -33,7 +33,7 @@
                 {% for booking in active_bookings %}
                 <li class="booking-card">
                     <h3>Ride #{{ booking.id }}</h3>
-                    <p><strong>Rider:</strong> {{ booking.rider.first_name }} {{ booking.rider.last_name }}</p>
+                    <p><strong>Passenger:</strong> {{ booking.passenger.first_name }} {{ booking.passenger.last_name }}</p>
                     <p><strong>Pickup:</strong> {{ booking.pickup_address }}</p>
                     <p><strong>Destination:</strong> {{ booking.destination_address }}</p>
                     <p><strong>Status:</strong> {{ booking.status|capfirst }}</p>
@@ -58,14 +58,14 @@
                             
                             <div class="pin-display-container" id="pin-display-{{ booking.id }}" style="display: none;">
                                 <div class="pin-card">
-                                    <p class="pin-label">📢 Share this PIN with rider:</p>
+                                    <p class="pin-label">📢 Share this PIN with passenger:</p>
                                     <div class="pin-value-display">
                                         <h2 class="pin-number" id="pin-value-{{ booking.id }}">----</h2>
                                     </div>
                                     <p class="pin-expiry">
                                         ⏱️ Expires in: <span class="pin-countdown" id="countdown-{{ booking.id }}">5:00</span>
                                     </p>
-                                    <p class="text-muted">Waiting for rider to confirm...</p>
+                                    <p class="text-muted">Waiting for passenger to confirm...</p>
                                     <button type="button" class="btn btn-sm btn-secondary regenerate-pin-btn" data-booking-id="{{ booking.id }}" data-single-click>
                                         🔄 Regenerate PIN
                                     </button>

@@ -1,7 +1,7 @@
 (function () {
   function getCsrfToken() {
     // Try common injection points
-    if (window.RIDER_DASH_CONFIG && window.RIDER_DASH_CONFIG.csrfToken) return window.RIDER_DASH_CONFIG.csrfToken;
+    if (window.PASSENGER_DASH_CONFIG && window.PASSENGER_DASH_CONFIG.csrfToken) return window.PASSENGER_DASH_CONFIG.csrfToken;
     const el = document.querySelector('input[name="csrfmiddlewaretoken"]');
     if (el) return el.value;
     // fallback cookie

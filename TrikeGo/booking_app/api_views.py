@@ -21,7 +21,7 @@ from .utils import (
     verify_payment_pin,
     get_pin_expiry_time
 )
-from user_app.models import Driver, Rider
+from user_app.models import Driver, Passenger
 
 logger = logging.getLogger(__name__)
 try:
@@ -85,7 +85,7 @@ def get_driver_location(request, booking_id):
     booking = get_object_or_404(Booking, id=booking_id)
     
     # Check permissions
-    if request.user not in [booking.rider, booking.driver]:
+    if request.user not in [booking.passenger, booking.driver]:
         return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
     
     if not booking.driver:
@@ -94,9 +94,9 @@ def get_driver_location(request, booking_id):
     try:
         location = DriverLocation.objects.get(driver=booking.driver)
         
-        # Calculate ETA if rider is requesting
+        # Calculate ETA if passenger is requesting
         eta_seconds = None
-        if request.user == booking.rider:
+        if request.user == booking.passenger:
             routing_service = RoutingService()
             
             if booking.status == 'accepted' or booking.status == 'on_the_way':
@@ -127,7 +127,7 @@ def get_current_route(request, booking_id):
     booking = get_object_or_404(Booking, id=booking_id)
     
     # Check permissions
-    if request.user not in [booking.rider, booking.driver]:
+    if request.user not in [booking.passenger, booking.driver]:
         return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
     
     route = RouteSnapshot.objects.filter(booking=booking, is_active=True).first()
@@ -226,7 +226,7 @@ def complete_itinerary_stop(request):
         return Response({'error': 'stopId is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
-        stop = BookingStop.objects.select_related('booking', 'booking__rider').get(
+        stop = BookingStop.objects.select_related('booking', 'booking__passenger').get(
             stop_uid=stop_id,
             booking__driver=request.user,
             booking__status__in=['accepted', 'on_the_way', 'started']
@@ -282,7 +282,7 @@ def complete_itinerary_stop(request):
             booking.status = 'started'
             booking.start_time = booking.start_time or timezone.now()
             booking.save(update_fields=['status', 'start_time'])
-            # Notify rider that trip has started
+            # Notify passenger that trip has started
             try:
                 if dispatch_notification and NotificationMessage:
                     msg = NotificationMessage(
@@ -290,7 +290,7 @@ def complete_itinerary_stop(request):
                         body=f"Your trip #{booking.id} has started.",
                         data={'booking_id': booking.id, 'type': 'trip_started'},
                     )
-                    dispatch_notification([booking.rider.id], msg, topics=['rider'])
+                    dispatch_notification([booking.passenger.id], msg, topics=['passenger'])
             except Exception:
                 pass
     else:  # dropoff
@@ -298,8 +298,8 @@ def complete_itinerary_stop(request):
         booking.end_time = timezone.now()
         booking.save(update_fields=['status', 'end_time'])
 
-        # Reset rider availability
-        Rider.objects.filter(user=booking.rider).update(status='Available')
+        # Reset passenger availability
+        Passenger.objects.filter(user=booking.passenger).update(status='Available')
 
     # If all bookings completed, set driver status to online
     remaining_stops = BookingStop.objects.filter(
@@ -313,7 +313,7 @@ def complete_itinerary_stop(request):
     else:
         Driver.objects.filter(user=request.user).update(status='Online')
 
-    # Ensure pick/drop pair consistency – if dropoff completed, mark booking rider status handled above
+    # Ensure pick/drop pair consistency – if dropoff completed, mark booking passenger status handled above
     plan_driver_stops(request.user)
 
     payload = build_driver_itinerary(request.user)
@@ -338,15 +338,15 @@ def complete_itinerary_stop(request):
             payload['completedBookings'] = completed_bookings
             payload['showPaymentModal'] = True
             payload['paymentModalBookingId'] = stop.booking_id
-            # Notify rider and driver about completed trip and payment pending
+            # Notify passenger and driver about completed trip and payment pending
             try:
                 if dispatch_notification and NotificationMessage:
-                    rider_msg = NotificationMessage(
+                    passenger_msg = NotificationMessage(
                         title='Trip Completed',
                         body=f"Your trip #{booking.id} is completed. Please verify payment.",
                         data={'booking_id': booking.id, 'type': 'trip_completed'},
                     )
-                    dispatch_notification([booking.rider.id], rider_msg, topics=['rider'])
+                    dispatch_notification([booking.passenger.id], passenger_msg, topics=['passenger'])
 
                     driver_msg = NotificationMessage(
                         title='Trip Completed - Payment Pending',
@@ -525,7 +525,7 @@ def generate_payment_pin_endpoint(request, booking_id):
         'pin': pin,  # Only show PIN in this response
         'expires_at': expiry_time.isoformat(),
         'max_attempts': booking.payment_pin_max_attempts,
-        'message': 'PIN generated successfully. Please share this PIN with the rider to confirm payment.'
+        'message': 'PIN generated successfully. Please share this PIN with the passenger to confirm payment.'
     }, status=status.HTTP_200_OK)
 
 
@@ -533,8 +533,8 @@ def generate_payment_pin_endpoint(request, booking_id):
 @permission_classes([IsAuthenticated])
 def verify_payment_pin_endpoint(request, booking_id):
     """
-    Verify the payment PIN entered by the rider.
-    Only the assigned rider can verify the PIN.
+    Verify the payment PIN entered by the passenger.
+    Only the assigned passenger can verify the PIN.
     
     Expected request body:
         {
@@ -544,22 +544,22 @@ def verify_payment_pin_endpoint(request, booking_id):
     Returns:
         200: Payment verified successfully
         400: Invalid PIN, expired, or max attempts reached
-        403: Not the assigned rider
+        403: Not the assigned passenger
         404: Booking not found
     """
     booking = get_object_or_404(Booking, id=booking_id)
     
-    # Security check: only the assigned rider can verify PIN
-    if request.user.trikego_user != 'R':
+    # Security check: only the assigned passenger can verify PIN
+    if request.user.trikego_user != 'P':
         return Response({
             'status': 'error',
-            'message': 'Only riders can verify payment PINs.'
+            'message': 'Only passengers can verify payment PINs.'
         }, status=status.HTTP_403_FORBIDDEN)
     
-    if booking.rider != request.user:
+    if booking.passenger != request.user:
         return Response({
             'status': 'error',
-            'message': 'You are not the assigned rider for this booking.'
+            'message': 'You are not the assigned passenger for this booking.'
         }, status=status.HTTP_403_FORBIDDEN)
     
     # Refresh from database to ensure we have the latest PIN data
@@ -671,7 +671,7 @@ def verify_payment_pin_endpoint(request, booking_id):
 def get_payment_pin_status(request, booking_id):
     """
     Get the current status of payment PIN verification.
-    Both driver and rider can check the status.
+    Both driver and passenger can check the status.
     
     Returns:
         200: {
@@ -684,8 +684,8 @@ def get_payment_pin_status(request, booking_id):
     """
     booking = get_object_or_404(Booking, id=booking_id)
     
-    # Security check: only rider or driver can check status
-    if request.user not in [booking.rider, booking.driver]:
+    # Security check: only passenger or driver can check status
+    if request.user not in [booking.passenger, booking.driver]:
         return Response({
             'status': 'error',
             'message': 'Permission denied.'

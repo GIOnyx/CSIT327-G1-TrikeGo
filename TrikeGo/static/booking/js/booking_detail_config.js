@@ -24,7 +24,7 @@
         userId: parseNumeric(rawUserId),
         csrfToken: dataset.csrfToken || '',
         cancelUrl: dataset.cancelUrl || '',
-        isRider: toBoolean(dataset.isRider),
+        isPassenger: toBoolean(dataset.isPassenger),
         bookingStatus: dataset.bookingStatus || '',
         paymentVerified: toBoolean(dataset.paymentVerified)
     };

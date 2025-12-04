@@ -35,7 +35,7 @@ class Migration(migrations.Migration):
                         ('created_at', models.DateTimeField(default=django.utils.timezone.now)),
                         ('booking', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='rating', to='booking.booking', verbose_name='Trip Booking')),
                         ('rated_user', models.ForeignKey(blank=True, limit_choices_to={'trikego_user': 'D'}, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='ratings_received', to=settings.AUTH_USER_MODEL, verbose_name='Rated User (Driver)')),
-                        ('rater', models.ForeignKey(limit_choices_to={'trikego_user': 'R'}, on_delete=django.db.models.deletion.CASCADE, related_name='ratings_given', to=settings.AUTH_USER_MODEL, verbose_name='Rater (Rider)')),
+                        ('rater', models.ForeignKey(limit_choices_to={'trikego_user': 'P'}, on_delete=django.db.models.deletion.CASCADE, related_name='ratings_given', to=settings.AUTH_USER_MODEL, verbose_name='Rater (Rider)')),
                     ],
                     options={
                         'verbose_name': 'Rating and Feedback',

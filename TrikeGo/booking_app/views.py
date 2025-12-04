@@ -16,7 +16,7 @@ from user_app.models import CustomUser
 def create_booking(request):
     latest_booking = (
         Booking.objects
-        .filter(rider=request.user)
+        .filter(passenger=request.user)
         .order_by('-booking_time', '-id')
         .first()
     )
@@ -25,12 +25,12 @@ def create_booking(request):
             request,
             f'Please verify the cash payment for Trip #{latest_booking.id} before booking another ride.'
         )
-        return redirect('user:rider_dashboard')
+        return redirect('user:passenger_dashboard')
 
     form = BookingForm(request.POST)
     if form.is_valid():
         booking = form.save(commit=False)
-        booking.rider = request.user  # Set the rider to the logged-in user
+        booking.passenger = request.user  # Set the passenger to the logged-in user
         booking.status = 'pending'    # Set the initial status
         booking.save()
         # Redirect to the new booking detail page to show status
@@ -38,14 +38,14 @@ def create_booking(request):
     else:
         # If form is invalid, it's harder to show errors on the dashboard.
         # For now, we redirect back. A better solution would use AJAX.
-        return redirect('user:rider_dashboard')
+        return redirect('user:passenger_dashboard')
 
 @login_required
 def booking_detail(request, booking_id):
     booking = get_object_or_404(Booking, id=booking_id)
 
-    # Security check: only the rider or driver of the booking can view it
-    if request.user != booking.rider and request.user != booking.driver:
+    # Security check: only the passenger or driver of the booking can view it
+    if request.user != booking.passenger and request.user != booking.driver:
         return HttpResponseForbidden("You do not have permission to view this booking.")
 
     context = {
@@ -58,16 +58,16 @@ def booking_detail(request, booking_id):
 def cancel_booking(request, booking_id):
     booking = get_object_or_404(Booking, id=booking_id)
 
-    # Allow both riders and drivers to cancel
-    if request.user != booking.rider and request.user != booking.driver:
+    # Allow both passengers and drivers to cancel
+    if request.user != booking.passenger and request.user != booking.driver:
         return JsonResponse({'status': 'error', 'message': 'Permission denied.'}, status=403)
 
     if booking.status in ['pending', 'accepted', 'on_the_way']:
         old_status = booking.status
         old_driver_id = booking.driver_id
         
-        if request.user == booking.rider:
-            # When rider cancels, just revert to pending and clear driver assignment
+        if request.user == booking.passenger:
+            # When passenger cancels, just revert to pending and clear driver assignment
             booking.status = 'pending'
             booking.driver = None
         elif request.user == booking.driver:

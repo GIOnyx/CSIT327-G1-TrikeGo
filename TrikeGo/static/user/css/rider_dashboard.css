@@ -351,7 +351,7 @@ body.history-panel-open .dashboard-booking-card {
   left: 508px; /* History ends at 488px + 20px gap */
 }
 
-/* When a booking is active, hide the booking card (rider can only have 1 active booking) */
+/* When a booking is active, hide the booking card (passenger can only have 1 active booking) */
 body.booking-active .dashboard-booking-card {
   display: none !important;
 }
@@ -465,7 +465,7 @@ body.history-panel-open #booking-preview-card {
 .stop-marker .marker-number { display:block; }
 .pickup-marker .marker-inner { background: #ffc107; width: 30px; height: 30px; border-radius: 50%; border: 2px solid white; }
 .dest-marker .marker-inner { background: #007bff; width: 30px; height: 30px; border-radius: 50%; border: 2px solid white; }
-.rider-marker .marker-inner { background: #ffc107; width: 24px; height: 24px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
+.passenger-marker .marker-inner { background: #ffc107; width: 24px; height: 24px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
 
 /* Legend */
 .map-legend {
@@ -653,7 +653,7 @@ body.sidebar-expanded .sidebar {
 }
 
 /* Trip History Overlay Panel Styles */
-#rider-history-panel {
+#passenger-history-panel {
   animation: slideInLeft 0.3s ease-out;
 }
 
@@ -668,28 +668,28 @@ body.sidebar-expanded .sidebar {
   }
 }
 
-#close-rider-history-panel:hover {
+#close-passenger-history-panel:hover {
   background: rgba(255,255,255,0.3) !important;
 }
 
-#close-rider-history-panel-bottom:hover {
+#close-passenger-history-panel-bottom:hover {
   background: #0a1f38 !important;
 }
 
-#rider-history-list::-webkit-scrollbar {
+#passenger-history-list::-webkit-scrollbar {
   width: 6px;
 }
 
-#rider-history-list::-webkit-scrollbar-track {
+#passenger-history-list::-webkit-scrollbar-track {
   background: transparent;
 }
 
-#rider-history-list::-webkit-scrollbar-thumb {
+#passenger-history-list::-webkit-scrollbar-thumb {
   background: #cbd5e0;
   border-radius: 3px;
 }
 
-#rider-history-list::-webkit-scrollbar-thumb:hover {
+#passenger-history-list::-webkit-scrollbar-thumb:hover {
   background: #a0aec0;
 }
 
