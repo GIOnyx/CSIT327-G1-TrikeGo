@@ -31,7 +31,9 @@ from django.conf import settings
 from decimal import Decimal
 from django.contrib.auth.views import redirect_to_login
 from django.contrib.auth import logout as auth_logout
+from django.utils.http import url_has_allowed_host_and_scheme
 from discount_codes_app.models import DiscountCode
+import logging
 
 # Import notification services
 try:
@@ -69,28 +71,58 @@ class Login(View):
             username = form.cleaned_data.get('username')
             password = form.cleaned_data.get('password')
             user = authenticate(username=username, password=password)
+            # debug prints removed
             if user is not None:
                 if user.trikego_user == 'D':
                     try:
                         driver_profile = Driver.objects.get(user=user)
                         if not driver_profile.is_verified:
                             messages.error(request, "Account not verified. Please wait for admin approval.")
-                            return redirect('/#login')
+                            # Render landing page with form and messages so the user sees the error
+                            return render(request, self.template_name, {'form': form})
                     except Driver.DoesNotExist:
                         messages.error(request, "Driver profile not found. Please contact support.")
-                        return redirect('/#login')
+                        return render(request, self.template_name, {'form': form})
 
                 login(request, user)
+                # Refresh user from DB to pick up any recent changes and related profiles
+                try:
+                    user = CustomUser.objects.get(pk=user.pk)
+                except Exception:
+                    # fallback to the authenticated user object
+                    pass
+
+                # If a Passenger profile exists but the user's trikego_user flag is not 'P', fix it.
+                try:
+                    if Passenger.objects.filter(user=user).exists() and getattr(user, 'trikego_user', None) != 'P':
+                        user.trikego_user = 'P'
+                        user.save(update_fields=['trikego_user'])
+                except Exception:
+                    pass
+
+                # Respect a safe `next` parameter if provided (from ?next= or form hidden input)
+                next_url = request.POST.get('next') or request.GET.get('next')
+                if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+                    return redirect(next_url)
+
+                # Ensure passenger profile exists (create if missing) so dashboard has required data
+                if user.trikego_user == 'P':
+                    try:
+                        Passenger.objects.get_or_create(user=user)
+                    except Exception:
+                        pass
+                    return redirect('user:passenger_dashboard')
+
                 if user.trikego_user == 'D':
                     return redirect('user:driver_dashboard')
-                elif user.trikego_user == 'P':
-                    return redirect('user:passenger_dashboard')
-                elif user.trikego_user == 'A':
+                if user.trikego_user == 'A':
                     return redirect('user:admin_dashboard')
-                return redirect('user:logged_in')
+
+                return redirect('user:passenger_dashboard')
 
         messages.error(request, "Invalid username or password.")
-        return redirect('/#login')
+        # Re-render landing page so errors are visible and form values can be shown
+        return render(request, self.template_name, {'form': form})
 
     def get(self, request):
         return redirect('user:landing')
@@ -134,12 +166,26 @@ class RegisterPage(View):
 
         return render(request, self.template_name, {'form': form, 'user_type': user_type})
 
+def logged_in_redirect(request):
+    if request.user.is_authenticated:
+        # Re-query the user to get fresh DB state
+        try:
+            u = CustomUser.objects.get(pk=request.user.pk)
+        except Exception:
+            u = request.user
 
-class LoggedIn(View):
-    template_name = 'user/tempLoggedIn.html'
-
-    def get(self, request):
-        return render(request, self.template_name) if request.user.is_authenticated else redirect('user:landing')
+        if getattr(u, 'trikego_user', None) == 'P':
+            # ensure passenger profile exists
+            try:
+                Passenger.objects.get_or_create(user=u)
+            except Exception:
+                pass
+            return redirect('user:passenger_dashboard')
+        elif getattr(u, 'trikego_user', None) == 'D':
+            return redirect('user:driver_dashboard')
+        elif getattr(u, 'trikego_user', None) == 'A':
+            return redirect('user:admin_dashboard')
+    return redirect('user:landing')
 
 
 @require_POST
@@ -206,12 +252,24 @@ def cancel_booking(request, booking_id):
     return redirect('user:passenger_dashboard')
 
 
+
 class PassengerDashboard(View):
     template_name = 'booking/passenger_dashboard.html'
 
     def get_context_data(self, request, form=None):
-        if not request.user.is_authenticated or request.user.trikego_user != 'P':
+        if not request.user.is_authenticated:
             return None
+
+        # If the user flag isn't 'P' but a Passenger profile exists, fix the flag so dashboard can load.
+        try:
+            if getattr(request.user, 'trikego_user', None) != 'P':
+                if Passenger.objects.filter(user=request.user).exists():
+                    request.user.trikego_user = 'P'
+                    request.user.save(update_fields=['trikego_user'])
+                else:
+                    return None
+        except Exception:
+            pass
 
         profile = Passenger.objects.filter(user=request.user).first()
         booking_form = form or BookingForm()
@@ -227,7 +285,7 @@ class PassengerDashboard(View):
                         if computed is not None:
                             _bk.save(update_fields=['fare'])
                 except Exception as e:
-                    print(f"RiderDashboard: could not compute fare for booking {_bk.id}: {e}")
+                    print(f"PassengerDashboard: could not compute fare for booking {_bk.id}: {e}")
         except Exception:
             pass
         ride_history = Booking.objects.filter(
@@ -273,8 +331,17 @@ class PassengerDashboard(View):
         return render(request, self.template_name, context)
 
     def post(self, request):
-        if not request.user.is_authenticated or request.user.trikego_user != 'P':
+        if not request.user.is_authenticated:
             return redirect('user:landing')
+        try:
+            if getattr(request.user, 'trikego_user', None) != 'P':
+                if Passenger.objects.filter(user=request.user).exists():
+                    request.user.trikego_user = 'P'
+                    request.user.save(update_fields=['trikego_user'])
+                else:
+                    return redirect('user:landing')
+        except Exception:
+            pass
 
         latest_booking = (
             Booking.objects
@@ -294,19 +361,19 @@ class PassengerDashboard(View):
             status__in=['pending', 'accepted', 'on_the_way', 'started'],
         )
         active_count = active_qs.count()
-        print(f'RiderDashboard.post: existing active bookings for user {request.user.username}: {active_count}')
+        print(f'PassengerDashboard.post: existing active bookings for user {request.user.username}: {active_count}')
         if active_count > 0:
             messages.error(request, 'You already have an active ride. Please complete or cancel it first.')
             return redirect('user:passenger_dashboard')
 
         form = BookingForm(request.POST)
         try:
-            print('RiderDashboard.post: POST keys:', list(request.POST.keys()))
+            print('PassengerDashboard.post: POST keys:', list(request.POST.keys()))
         except Exception:
             pass
 
         valid = form.is_valid()
-        print(f'RiderDashboard.post: BookingForm.is_valid() => {valid}')
+        print(f'PassengerDashboard.post: BookingForm.is_valid() => {valid}')
         if not valid:
             try:
                 non_field = form.non_field_errors()
@@ -443,10 +510,6 @@ def logout_view(request):
 from django.views import View
 from django.shortcuts import render
 
-class PassengerDashboard(View):
-    def get(self, request):
-        return render(request, 'passenger_dashboard.html')
-
 
 class AdminDashboard(View):
     template_name = 'user/admin_dashboard.html'
@@ -526,29 +589,29 @@ class AdminDashboard(View):
 
         # Passengers list with filters, sorting and pagination
         passengers_qs = Passenger.objects.select_related('user').all()
-        r_search = request.GET.get('r_search')
-        r_status = request.GET.get('r_status')
-        r_sort = request.GET.get('r_sort')
-        r_order = request.GET.get('r_order', 'desc')
+        p_search = request.GET.get('p_search')
+        p_status = request.GET.get('p_status')
+        p_sort = request.GET.get('p_sort')
+        p_order = request.GET.get('p_order', 'desc')
 
-        if r_search:
+        if p_search:
             passengers_qs = passengers_qs.filter(
-                Q(user__first_name__icontains=r_search) |
-                Q(user__last_name__icontains=r_search) |
-                Q(user__username__icontains=r_search) |
-                Q(user__email__icontains=r_search)
+                Q(user__first_name__icontains=p_search) |
+                Q(user__last_name__icontains=p_search) |
+                Q(user__username__icontains=p_search) |
+                Q(user__email__icontains=p_search)
             )
-        if r_status:
-            passengers_qs = passengers_qs.filter(status=r_status)
+        if p_status:
+            passengers_qs = passengers_qs.filter(status=p_status)
 
-        if r_sort:
+        if p_sort:
             r_order_field = {
                 'name': 'user__first_name',
                 'username': 'user__username',
                 'loyalty': 'loyalty_points',
                 'status': 'status',
-            }.get(r_sort, 'user__username')
-            if r_order == 'desc':
+            }.get(p_sort, 'user__username')
+            if p_order == 'desc':
                 r_order_field = '-' + r_order_field
             passengers_qs = passengers_qs.order_by(r_order_field)
         else:

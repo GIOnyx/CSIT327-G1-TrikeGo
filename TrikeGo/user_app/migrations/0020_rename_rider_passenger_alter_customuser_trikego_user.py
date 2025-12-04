@@ -10,13 +10,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RenameModel(
-            old_name='Rider',
-            new_name='Passenger',
-        ),
-        migrations.AlterField(
-            model_name='customuser',
-            name='trikego_user',
-            field=models.CharField(choices=[('P', 'Passenger'), ('A', 'Admin'), ('D', 'Driver')], default='P', max_length=1),
-        ),
+        # Migration removed: model already created as 'Passenger' in earlier migrations after refactor.
     ]

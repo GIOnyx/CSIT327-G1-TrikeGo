@@ -77,7 +77,7 @@ class PaymentPINModelTest(TestCase):
             username='rider1',
             email='rider1@test.com',
             password='testpass123',
-            trikego_user='R'
+            trikego_user='P'
         )
         self.driver = CustomUser.objects.create_user(
             username='driver1',
@@ -370,7 +370,7 @@ class PaymentPINAPITest(TestCase):
             username='other_user',
             email='other@test.com',
             password='testpass123',
-            trikego_user='R'
+            trikego_user='P'
         )
         
         self.client.force_authenticate(user=other_user)
@@ -390,7 +390,7 @@ class PaymentPINIntegrationTest(TestCase):
             username='rider1',
             email='rider1@test.com',
             password='testpass123',
-            trikego_user='R'
+            trikego_user='P'
         )
         self.driver = CustomUser.objects.create_user(
             username='driver1',

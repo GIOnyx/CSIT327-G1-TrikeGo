@@ -49,9 +49,9 @@ class Migration(migrations.Migration):
             preserve_default=False,
         ),
         migrations.AlterField(
-            model_name='rider',
+            model_name='passenger',
             name='user',
-            field=models.OneToOneField(default=1, on_delete=django.db.models.deletion.CASCADE, related_name='rider_profile', to=settings.AUTH_USER_MODEL),
+            field=models.OneToOneField(default=1, on_delete=django.db.models.deletion.CASCADE, related_name='passenger_profile', to=settings.AUTH_USER_MODEL),
             preserve_default=False,
         ),
     ]

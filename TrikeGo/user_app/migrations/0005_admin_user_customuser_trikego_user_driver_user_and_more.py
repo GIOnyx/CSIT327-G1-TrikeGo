@@ -20,7 +20,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='customuser',
             name='trikego_user',
-            field=models.CharField(choices=[('R', 'Rider'), ('A', 'Admin'), ('D', 'Driver')], default='R', max_length=1),
+            field=models.CharField(choices=[('P', 'Passenger'), ('A', 'Admin'), ('D', 'Driver')], default='P', max_length=1),
         ),
         migrations.AddField(
             model_name='driver',
@@ -28,7 +28,7 @@ class Migration(migrations.Migration):
             field=models.OneToOneField(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL),
         ),
         migrations.AddField(
-            model_name='rider',
+            model_name='passenger',
             name='user',
             field=models.OneToOneField(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL),
         ),

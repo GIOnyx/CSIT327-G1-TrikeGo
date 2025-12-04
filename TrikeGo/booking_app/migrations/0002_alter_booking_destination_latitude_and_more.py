@@ -41,6 +41,6 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='booking',
             name='rider',
-            field=models.ForeignKey(limit_choices_to={'trikego_user': 'R'}, on_delete=django.db.models.deletion.CASCADE, related_name='rider_bookings', to=settings.AUTH_USER_MODEL),
+            field=models.ForeignKey(limit_choices_to={'trikego_user': 'P'}, on_delete=django.db.models.deletion.CASCADE, related_name='rider_bookings', to=settings.AUTH_USER_MODEL),
         ),
     ]

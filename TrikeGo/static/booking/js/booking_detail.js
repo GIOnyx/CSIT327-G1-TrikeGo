@@ -31,7 +31,7 @@
                     credentials: 'same-origin',
                     headers: { 'X-CSRFToken': csrfToken, 'Content-Type': 'application/json' }
                 })
-                .then(r => r.json())
+                .then(p => p.json())
                 .then(data => {
                     const messageDiv = document.getElementById('message');
                     messageDiv.textContent = data.message || 'Cancelled';
@@ -100,7 +100,7 @@
 
         function loadMessages() {
             fetch(apiGet, { credentials: 'same-origin' })
-                .then(r => { if (!r.ok) throw r; return r.json(); })
+                .then(p => { if (!p.ok) throw p; return p.json(); })
                 .then(data => {
                     messagesEl.innerHTML = '';
                     if (!data.messages || data.messages.length === 0) {
@@ -146,7 +146,7 @@
                 method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
                 body: JSON.stringify({ message: text })
             })
-            .then(r => r.json())
+            .then(p => p.json())
             .then(data => {
                 if (data.error) { alert(data.error); return; }
                 messagesEl.insertAdjacentHTML('beforeend', formatMessage(data));

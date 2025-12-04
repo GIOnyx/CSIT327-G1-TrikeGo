@@ -46,6 +46,8 @@
       <div class="divider"><span>or continue with email</span></div>
       <form method="POST" action="{% url 'user:login' %}">
         {% csrf_token %}
+        <!-- Preserve next parameter so users are redirected to their intended page after login -->
+        <input type="hidden" name="next" value="{{ request.GET.next|default:'' }}" />
         {{ form.username }}
         {{ form.password }}
         <label class="remember">

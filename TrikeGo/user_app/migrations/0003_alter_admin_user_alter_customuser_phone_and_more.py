@@ -28,8 +28,8 @@ class Migration(migrations.Migration):
             field=models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='driver_profile', to=settings.AUTH_USER_MODEL),
         ),
         migrations.AlterField(
-            model_name='rider',
+            model_name='passenger',
             name='user',
-            field=models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='rider_profile', to=settings.AUTH_USER_MODEL),
+            field=models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='passenger_profile', to=settings.AUTH_USER_MODEL),
         ),
     ]

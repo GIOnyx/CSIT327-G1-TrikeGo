@@ -12,7 +12,7 @@ urlpatterns = [
     # Authentication
     path('login/', views.Login.as_view(), name='login'),
     path('register/', views.RegisterPage.as_view(), name='register'),
-    #path('logged_in/', views.logged_in_redirect, name='logged_in'),
+    path('logged-in/', views.logged_in_redirect, name='logged_in_redirect'),
 
     # Dashboards
     path('passenger_dashboard/', views.PassengerDashboard.as_view(), name='passenger_dashboard'),

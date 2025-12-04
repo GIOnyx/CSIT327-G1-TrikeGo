@@ -2187,7 +2187,7 @@
                 };
                 ensureLoader();
 
-                fetch(`/api/booking/${bookingId}/route_info/`).then(r => r.json()).then(async (info) => {
+                fetch(`/api/booking/${bookingId}/route_info/`).then(p => p.json()).then(async (info) => {
                     if (!info || info.status !== 'success') { console.log('route_info returned', info); if (routeDetails) routeDetails.textContent = 'No route info available.'; return; }
                     
                     console.log('[Driver Dashboard Review] Route info received:', {

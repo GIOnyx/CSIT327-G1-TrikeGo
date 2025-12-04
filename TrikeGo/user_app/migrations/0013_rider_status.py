@@ -11,7 +11,7 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.AddField(
-            model_name='rider',
+            model_name='passenger',
             name='status',
             field=models.CharField(choices=[('Available', 'Available'), ('In_trip', 'In trip')], default='Available', max_length=12),
         ),

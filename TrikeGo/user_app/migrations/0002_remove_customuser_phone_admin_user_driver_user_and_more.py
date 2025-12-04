@@ -24,13 +24,13 @@ class Migration(migrations.Migration):
             field=models.OneToOneField(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='driver_profile', to=settings.AUTH_USER_MODEL),
         ),
         migrations.AddField(
-            model_name='rider',
+            model_name='passenger',
             name='user',
-            field=models.OneToOneField(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='rider_profile', to=settings.AUTH_USER_MODEL),
+            field=models.OneToOneField(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='passenger_profile', to=settings.AUTH_USER_MODEL),
         ),
         migrations.AlterField(
             model_name='customuser',
             name='trikego_user',
-            field=models.CharField(blank=True, choices=[('R', 'Rider'), ('A', 'Admin'), ('D', 'Driver')], max_length=1, null=True),
+            field=models.CharField(blank=True, choices=[('P', 'Passenger'), ('A', 'Admin'), ('D', 'Driver')], max_length=1, null=True),
         ),
     ]

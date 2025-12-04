@@ -1,11 +1,11 @@
-{% load static %}
+﻿{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Passenger Dashboard - TrikeGo</title>
-    <link rel="stylesheet" href="{% static 'user/css/rider_dashboard.css' %}?v=6" />
+    <link rel="stylesheet" href="{% static 'user/css/passenger_dashboard.css' %}?v=6" />
     {# Wallet/driver panel styles include - required for trip history card styles used by the passenger and driver dashboards #}
     <link rel="stylesheet" href="{% static 'wallet/css/driver_wallet_panel.css' %}?v=1" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
@@ -337,11 +337,11 @@
 
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
     <script src="{% static 'user/js/single_click_helper.js' %}"></script>
-    <script src="{% static 'booking/js/rider_dashboard_config.js' %}"></script>
-    <script src="{% static 'booking/js/rider_dashboard.js' %}?v=7"></script>
+    <script src="{% static 'booking/js/passenger_dashboard_config.js' %}"></script>
+    <script src="{% static 'booking/js/passenger_dashboard.js' %}?v=7"></script>
     <script src="{% static 'booking/js/trip_history.js' %}"></script>
-    <script src="{% static 'booking/js/rider_dashboard_pin.js' %}"></script>
-    <script src="{% static 'booking/js/rider_dashboard_rating.js' %}"></script>
+    <script src="{% static 'booking/js/passenger_dashboard_pin.js' %}"></script>
+    <script src="{% static 'booking/js/passenger_dashboard_rating.js' %}"></script>
 
     {# Push registration bootstrap #}
     <script src="{% static 'notifications/registerPush.js' %}"></script>

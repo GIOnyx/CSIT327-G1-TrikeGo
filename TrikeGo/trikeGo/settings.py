@@ -8,6 +8,7 @@ import os
 from supabase import create_client
 from pathlib import Path
 import dj_database_url
+from django.urls import reverse_lazy
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 \
@@ -82,16 +83,42 @@ os.environ["PGOPTIONS"] = "-c inet_family=inet"
 
 DATABASES = {
     'default': dj_database_url.config(
-        # Fallback to your local DB if DATABASE_URL isn't set
-        default='postgresql://postgres.fyfehaxsgpjeneljrmnd:TrikeGo-databasePassword@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres'
+        default=os.environ.get('DATABASE_URL'),
+        conn_max_age=int(os.environ.get('CONN_MAX_AGE', 0)),
+        ssl_require=True  # ensures SSL when connecting to Supabase
     )
 }
+
 # Ensure it respects Supabase/Render's SSL requirements if any
 if 'DATABASE_URL' in os.environ:
     DATABASES['default']['OPTIONS'] = {'sslmode': 'require'}
 # Set CONN_MAX_AGE to 0 to prevent connection pool exhaustion on Supabase pooler (Session Mode)
 # Connections will be closed after each request instead of being reused
 DATABASES['default']['CONN_MAX_AGE'] = int(os.environ.get('CONN_MAX_AGE', 0))
+
+# In DEBUG mode try a quick connectivity probe to the configured DATABASE_URL.
+# If it fails (e.g. Supabase credentials/tenant issue), fall back to a local
+# SQLite database so development can continue without the remote DB.
+if DEBUG:
+    db_url = os.environ.get('DATABASE_URL')
+    if db_url:
+        try:
+            # Try a minimal connection using psycopg2. If psycopg2 isn't installed
+            # or the connection fails, catch the exception and use SQLite.
+            import psycopg2
+            conn = psycopg2.connect(db_url, sslmode='require')
+            conn.close()
+        except Exception as _err:
+            import logging
+            logging.getLogger(__name__).warning(
+                'Database connectivity check failed; falling back to SQLite for DEBUG. Error: %s', _err
+            )
+            DATABASES = {
+                'default': {
+                    'ENGINE': 'django.db.backends.sqlite3',
+                    'NAME': str(BASE_DIR / 'db.sqlite3'),
+                }
+            }
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
@@ -185,6 +212,7 @@ CELERY_TASK_EAGER_PROPAGATES = True
 
 AUTH_USER_MODEL = "user.CustomUser"
 LOGIN_URL = 'user:landing'
+LOGIN_REDIRECT_URL = reverse_lazy('user:logged_in_redirect')
 
 AUTH_PASSWORD_VALIDATORS = [
     {

@@ -39,7 +39,7 @@ class Migration(migrations.Migration):
             name='user',
         ),
         migrations.RemoveField(
-            model_name='rider',
+            model_name='passenger',
             name='user',
         ),
         migrations.AddField(
