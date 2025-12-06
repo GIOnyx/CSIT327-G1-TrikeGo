@@ -89,6 +89,7 @@ DATABASES = {
     )
 }
 
+
 # Ensure it respects Supabase/Render's SSL requirements if any
 if 'DATABASE_URL' in os.environ:
     DATABASES['default']['OPTIONS'] = {'sslmode': 'require'}

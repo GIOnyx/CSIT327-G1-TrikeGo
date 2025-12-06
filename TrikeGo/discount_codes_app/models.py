@@ -29,6 +29,10 @@ class DiscountCode(models.Model):
         decimal_places=2,
         help_text="The value (e.g., 10.00 for 10% or $10.00 fixed)"
     )
+    cost = models.PositiveIntegerField(
+        default=0,
+        help_text="Number of loyalty points required to redeem this code"
+    )
     max_uses = models.PositiveIntegerField(
         default=0,
         help_text="Maximum total times the code can be used (0 for unlimited)"
@@ -61,3 +65,24 @@ class DiscountCode(models.Model):
         if self.max_uses > 0 and self.uses_count >= self.max_uses:
             return False
         return True
+    def is_redeemed_by(self, passenger):
+        """
+        Returns True if the passenger has redeemed this discount code.
+        """
+        return LoyaltyRedemption.objects.filter(
+            passenger=passenger,
+            discount_code=self
+        ).exists()
+    
+    from django.conf import settings
+
+class LoyaltyRedemption(models.Model):
+    passenger = models.ForeignKey('user.Passenger', on_delete=models.CASCADE, related_name='redemptions')
+    discount_code = models.ForeignKey(DiscountCode, on_delete=models.CASCADE, related_name='redemptions')
+    points_used = models.PositiveIntegerField()
+    redeemed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('passenger', 'discount_code')  # Optional: prevent double redemption
+        verbose_name = "Loyalty Redemption"
+        verbose_name_plural = "Loyalty Redemptions"

@@ -33,6 +33,7 @@ from django.contrib.auth.views import redirect_to_login
 from django.contrib.auth import logout as auth_logout
 from django.utils.http import url_has_allowed_host_and_scheme
 from discount_codes_app.models import DiscountCode
+from discount_codes_app.forms import DiscountCodeForm
 import logging
 
 # Import notification services
@@ -273,6 +274,10 @@ class PassengerDashboard(View):
 
         profile = Passenger.objects.filter(user=request.user).first()
         booking_form = form or BookingForm()
+
+        passenger = Passenger.objects.get(user=request.user)
+        loyalty_points = passenger.loyalty_points
+
         active_bookings = Booking.objects.filter(
             passenger=request.user,
             status__in=['pending', 'accepted', 'on_the_way', 'started'],
@@ -316,6 +321,7 @@ class PassengerDashboard(View):
             'user': request.user,
             'passenger_profile': profile,
             'active_bookings': active_bookings,
+            'loyalty_points': loyalty_points, 
             'ride_history': ride_history,
             'settings': settings,
             'booking_form': booking_form,
@@ -396,6 +402,20 @@ class PassengerDashboard(View):
             booking.passenger = request.user
 
             discount_code_str = request.POST.get('discount_code_input', '').strip() or None
+            applied_code = None
+            
+            if discount_code_str:
+                try:
+                    applied_code = DiscountCode.objects.get(code=discount_code_str)
+                except DiscountCode.DoesNotExist:
+                    messages.error(request, f'Discount code {discount_code_str} does not exist.')
+                    return redirect('user:passenger_dashboard')
+
+                # NEW: check if passenger redeemed it
+                passenger = Passenger.objects.get(user=request.user)
+                if not applied_code.is_redeemed_by(passenger):
+                    messages.error(request, f'You must redeem the discount code "{applied_code.code}" before using it.')
+                    return redirect('user:passenger_dashboard')
 
             pickup_lon = form.cleaned_data['pickup_longitude']
             pickup_lat = form.cleaned_data['pickup_latitude']
@@ -412,7 +432,8 @@ class PassengerDashboard(View):
                 if route_info and not route_info.get('too_close'):
                     booking.estimated_distance = Decimal(str(route_info['distance']))
                     booking.estimated_duration = route_info['duration'] // 60
-                    booking.calculate_fare(discount_code_str=discount_code_str)
+                    booking.calculate_fare(discount_code_str=applied_code.code if applied_code else None)
+                    booking.discount_code = applied_code
                 else:
                     messages.warning(request, "Could not determine route estimates for fare calculation or points are too close.")
             except Exception as e:
@@ -619,6 +640,7 @@ class AdminDashboard(View):
 
         passengers_paginator = Paginator(passengers_qs, per_page)
         passengers_page = passengers_paginator.get_page(request.GET.get('page_passengers', 1))
+        discount_codes = DiscountCode.objects.all().order_by('-valid_from')
 
         context = {
             "drivers_page": drivers_page,
@@ -626,6 +648,8 @@ class AdminDashboard(View):
             "users": CustomUser.objects.all(),
             "verification_form": DriverVerificationForm(),
             "trips_page": page_obj,
+            "discount_form": DiscountCodeForm(),
+            "discount_codes": discount_codes,   
             # expose current filters so template can keep form values
             'filter_status': status_filter or '',
             'filter_driver': driver_filter or '',
@@ -652,6 +676,19 @@ class AdminDashboard(View):
                 for error in errors:
                     messages.error(request, f"{field}: {error}")
 
+        return redirect('user:admin_dashboard')
+
+    def post(self, request):
+        if not request.user.is_authenticated or getattr(request.user, 'trikego_user', None) != 'A':
+            return redirect('user:landing')
+        
+        form = DiscountCodeForm(request.POST)
+
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Discount code created.")
+        else:
+            messages.error(request, "Failed to create discount code. Check input data.")
         return redirect('user:admin_dashboard')
 
 
@@ -937,3 +974,27 @@ def get_passenger_trip_history(request):
         })
 
     return JsonResponse({'status': 'success', 'trips': trips})
+
+@login_required
+def get_passenger_profile(request):
+    # Ensure the user is a passenger
+    if request.user.trikego_user != 'P':
+        return JsonResponse({'status': 'error', 'message': 'Passenger only'}, status=403)
+
+    try:
+        passenger = Passenger.objects.get(user=request.user)
+    except Passenger.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': 'Passenger profile not found'}, status=404)
+
+    # Build the profile data
+    profile_data = {
+        'full_name': request.user.get_full_name(),
+        'email': request.user.email,
+        'phone': getattr(request.user, 'phone', None),
+        'loyalty_points': passenger.loyalty_points,
+        'status': passenger.status,
+        'current_latitude': passenger.current_latitude,
+        'current_longitude': passenger.current_longitude,
+    }
+
+    return JsonResponse({'status': 'success', 'profile': profile_data})

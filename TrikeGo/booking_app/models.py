@@ -5,6 +5,7 @@ from django.db import models
 from django.utils import timezone
 from decimal import Decimal
 from discount_codes_app.models import DiscountCode
+from discount_codes_app.models import LoyaltyRedemption
 
 class Booking(models.Model):
     passenger = models.ForeignKey(
@@ -117,25 +118,21 @@ class Booking(models.Model):
                     is_active=True
                 )
 
-                if not discount_code_obj.is_valid_now:
-                # Code is expired or max uses reached, ignore it
+                if not LoyaltyRedemption.objects.filter(
+                    passenger__user=self.passenger,
+                    discount_code=discount_code_obj
+                ).exists():
                     self.discount_code = None
-                elif base_fare < discount_code_obj.min_fare:
-                # Minimum fare not met, ignore it
-                    self.discount_code = None
+                    discount_amount = Decimal('0.00')
                 else:
                     self.discount_code = discount_code_obj
-
-                # 3. Calculate discount amount
-                    if discount_code_obj.discount_type == 'P': # Percentage
-                        discount_percent = discount_code_obj.value / Decimal('100.00')
-                        discount_amount = base_fare * discount_percent
-                    elif discount_code_obj.discount_type == 'F': # Fixed Amount
+                    # Calculate discount as before
+                    if discount_code_obj.discount_type == 'P':
+                        discount_amount = base_fare * (discount_code_obj.value / Decimal('100.0'))
+                    else:
                         discount_amount = discount_code_obj.value
-
-                # 4. Ensure discount doesn't make fare negative
                     discount_amount = min(discount_amount, final_fare)
-                    final_fare = base_fare - discount_amount
+                    final_fare -= discount_amount
 
             except DiscountCode.DoesNotExist:
                 self.discount_code = None # Code doesn't exist

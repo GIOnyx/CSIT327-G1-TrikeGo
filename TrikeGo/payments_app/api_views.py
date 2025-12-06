@@ -2,6 +2,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
+from user_app.models import Passenger
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.db import transaction
@@ -111,7 +112,24 @@ def verify_payment_pin_endpoint(request, booking_id):
             booking_locked.status = 'completed'
             booking_locked.end_time = timezone.now()
             booking_locked.save(update_fields=['payment_verified', 'payment_verified_at', 'status', 'end_time'])
+
+            booking_locked.refresh_from_db()
             # Notify driver and passenger that payment was verified
+
+            points = 0
+            try:
+                passenger_profile = Passenger.objects.get(user=booking_locked.passenger)
+                
+                ride_fare = booking_locked.final_fare or booking_locked.fare
+                
+                if ride_fare:
+                    points = int(ride_fare // 10)
+                    if points > 0:
+                        passenger_profile.loyalty_points += points
+                        passenger_profile.save()
+            except Passenger.DoesNotExist:
+                points = 0
+
             try:
                 if dispatch_notification and NotificationMessage:
                     passenger_msg = NotificationMessage(

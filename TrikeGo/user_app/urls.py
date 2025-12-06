@@ -39,6 +39,9 @@ urlpatterns = [
     # --- TRIP HISTORY API URLS ---
     path('api/passenger/trip-history/', views.get_passenger_trip_history, name='passenger_trip_history'),
     path('api/driver/trip-history/', driver_views.get_driver_trip_history, name='driver_trip_history'),
+
+    # --- PROFILE API URLS ---
+    path('api/passenger/profile/', views.get_passenger_profile, name='get_passenger_profile'),
     
     # Custom logout that redirects to landing (accepts POST)
     path('logout/', views.logout_view, name='logout'),
