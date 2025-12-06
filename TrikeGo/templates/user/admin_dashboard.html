@@ -38,6 +38,7 @@
       <a href="?tab=drivers" class="tab-link{% if active_tab == 'drivers' or not active_tab %} active{% endif %}" data-tab="drivers">Drivers</a>
       <a href="?tab=passengers" class="tab-link{% if active_tab == 'passengers' %} active{% endif %}" data-tab="passengers">Passengers</a>
       <a href="?tab=trips" class="tab-link{% if active_tab == 'trips' %} active{% endif %}" data-tab="trips">Trips</a>
+      <a href="?tab=discounts" class="tab-link{% if active_tab == 'discounts' %} active{% endif %}" data-tab="discounts">Discount Codes</a>
     </div>
     <section class="dashboard-section tab-panel{% if active_tab == 'drivers' or not active_tab %} active{% endif %}" data-tab="drivers">
       <h2>Drivers</h2>
@@ -399,6 +400,50 @@
       });
     })();
   </script>
+
+  <section class="dashboard-section tab-panel{% if active_tab == 'discounts' %} active{% endif %}" data-tab="discounts">
+    <h2>Create Discount Code</h2>
+
+    <form method="post" action="?tab=discounts" class="discount-form">
+        {% csrf_token %}
+        {{ discount_form.as_p }}
+        <button type="submit">Create Discount</button>
+    </form>
+
+    <h3>Existing Codes</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Code</th>
+                <th>Type</th>
+                <th>Value</th>
+                <th>Active</th>
+                <th>Cost</th>
+                <th>Uses</th>
+                <th>Max Uses</th>
+                <th>Valid From</th>
+                <th>Valid To</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for d in discount_codes %}
+            <tr>
+                <td data-label="Code">{{ d.code }}</td>
+                <td data-label="Type">{{ d.get_discount_type_display }}</td>
+                <td data-label="Value">{{ d.value }}</td>
+                <td data-label="Active">{{ d.is_active }}</td>
+                <td data-label="Cost">{{ d.cost }}</td>
+                <td data-label="Uses">{{ d.uses_count }}</td>
+                <td data-label="Max Uses">{{ d.max_uses }}</td>
+                <td data-label="Valid From">{{ d.valid_from }}</td>
+                <td data-label="Valid To">{{ d.valid_to|default:'—' }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="8">No discount codes yet.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
 
   <!-- Push unsubscribe control (moved to header actions) -->
 </body>
