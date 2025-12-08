@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.db.models import Count, Q
 from django.utils.html import format_html
 from .models import Driver, Admin, Passenger, Tricycle
 
@@ -35,7 +36,7 @@ class TricycleInline(admin.TabularInline):
 
 @admin.register(Driver)
 class DriverAdmin(admin.ModelAdmin):
-    list_display = ['user', 'license_number', 'is_verified', 'status', 'date_hired']
+    list_display = ['user', 'license_number', 'is_verified', 'status', 'lifetime_trips', 'date_hired']
     list_filter = ['is_verified', 'status']
     search_fields = ['user__username', 'user__email', 'license_number']
     readonly_fields = ['license_image_link', 'date_hired', 'years_of_service']
@@ -62,6 +63,22 @@ class DriverAdmin(admin.ModelAdmin):
             return format_html('<a href="{}" target="_blank">View License Image</a>', obj.license_image_url)
         return "No license image"
     license_image_link.short_description = "Driver's License Image"
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request).select_related('user')
+        return qs.annotate(
+            lifetime_trip_count=Count(
+                'user__driver_bookings',
+                filter=Q(user__driver_bookings__status='completed'),
+                distinct=True,
+            )
+        )
+
+    def lifetime_trips(self, obj):
+        return getattr(obj, 'lifetime_trip_count', 0)
+
+    lifetime_trips.short_description = 'Lifetime Trips'
+    lifetime_trips.admin_order_field = 'lifetime_trip_count'
 
 @admin.register(Tricycle)
 class TricycleAdmin(admin.ModelAdmin):
@@ -110,5 +127,27 @@ class TricycleAdmin(admin.ModelAdmin):
     mtop_link.short_description = 'MTOP/Franchise Preview'
 
 # Register your models here.
+@admin.register(Passenger)
+class PassengerAdmin(admin.ModelAdmin):
+    list_display = ['user', 'status', 'loyalty_points', 'lifetime_trips']
+    list_filter = ['status']
+    search_fields = ['user__username', 'user__email']
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request).select_related('user')
+        return qs.annotate(
+            lifetime_trip_count=Count(
+                'user__passenger_bookings',
+                filter=Q(user__passenger_bookings__status='completed'),
+                distinct=True,
+            )
+        )
+
+    def lifetime_trips(self, obj):
+        return getattr(obj, 'lifetime_trip_count', 0)
+
+    lifetime_trips.short_description = 'Lifetime Trips'
+    lifetime_trips.admin_order_field = 'lifetime_trip_count'
+
+
 admin.site.register(Admin)
-admin.site.register(Passenger)

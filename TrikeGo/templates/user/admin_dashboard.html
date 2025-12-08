@@ -43,50 +43,52 @@
     <section class="dashboard-section tab-panel{% if active_tab == 'drivers' or not active_tab %} active{% endif %}" data-tab="drivers">
       <h2>Drivers</h2>
 
-      <form method="get" class="trips-filters">
-        <input type="hidden" name="tab" value="drivers" />
-        <label>
-          Search:
-          <input type="text" name="d_search" value="{{ request.GET.d_search|default:'' }}" placeholder="name or username" />
-        </label>
-        <label>
-          Status:
-          <select name="d_status">
-            <option value="">All</option>
-            <option value="Offline" {% if request.GET.d_status == 'Offline' %}selected{% endif %}>Offline</option>
-            <option value="Online" {% if request.GET.d_status == 'Online' %}selected{% endif %}>Online</option>
-            <option value="In_trip" {% if request.GET.d_status == 'In_trip' %}selected{% endif %}>In trip</option>
-          </select>
-        </label>
-        <label>
-          Verified:
-          <select name="d_verified">
-            <option value="">Any</option>
-            <option value="true" {% if request.GET.d_verified == 'true' %}selected{% endif %}>Verified</option>
-            <option value="false" {% if request.GET.d_verified == 'false' %}selected{% endif %}>Unverified</option>
-          </select>
-        </label>
-        <label>
-          Sort:
-          <select name="d_sort">
-            <option value="">Default</option>
-            <option value="name" {% if request.GET.d_sort == 'name' %}selected{% endif %}>Name</option>
-            <option value="username" {% if request.GET.d_sort == 'username' %}selected{% endif %}>Username</option>
-            <option value="date_hired" {% if request.GET.d_sort == 'date_hired' %}selected{% endif %}>Date Hired</option>
-            <option value="status" {% if request.GET.d_sort == 'status' %}selected{% endif %}>Status</option>
-          </select>
-        </label>
-        <label>
-          Order:
-          <select name="d_order">
-            <option value="desc" {% if request.GET.d_order != 'asc' %}selected{% endif %}>Desc</option>
-            <option value="asc" {% if request.GET.d_order == 'asc' %}selected{% endif %}>Asc</option>
-          </select>
-        </label>
-        <button type="submit">Apply</button>
-      </form>
+      <div class="table-shell">
+        <form method="get" class="trips-filters">
+          <input type="hidden" name="tab" value="drivers" />
+          <label>
+            Search:
+            <input type="text" name="d_search" value="{{ request.GET.d_search|default:'' }}" placeholder="name or username" />
+          </label>
+          <label>
+            Status:
+            <select name="d_status">
+              <option value="">All</option>
+              <option value="Offline" {% if request.GET.d_status == 'Offline' %}selected{% endif %}>Offline</option>
+              <option value="Online" {% if request.GET.d_status == 'Online' %}selected{% endif %}>Online</option>
+              <option value="In_trip" {% if request.GET.d_status == 'In_trip' %}selected{% endif %}>In trip</option>
+            </select>
+          </label>
+          <label>
+            Verified:
+            <select name="d_verified">
+              <option value="">Any</option>
+              <option value="true" {% if request.GET.d_verified == 'true' %}selected{% endif %}>Verified</option>
+              <option value="false" {% if request.GET.d_verified == 'false' %}selected{% endif %}>Unverified</option>
+            </select>
+          </label>
+          <label>
+            Sort:
+            <select name="d_sort">
+              <option value="">Default</option>
+              <option value="name" {% if request.GET.d_sort == 'name' %}selected{% endif %}>Name</option>
+              <option value="username" {% if request.GET.d_sort == 'username' %}selected{% endif %}>Username</option>
+              <option value="date_hired" {% if request.GET.d_sort == 'date_hired' %}selected{% endif %}>Date Hired</option>
+              <option value="status" {% if request.GET.d_sort == 'status' %}selected{% endif %}>Status</option>
+            </select>
+          </label>
+          <label>
+            Order:
+            <select name="d_order">
+              <option value="desc" {% if request.GET.d_order != 'asc' %}selected{% endif %}>Desc</option>
+              <option value="asc" {% if request.GET.d_order == 'asc' %}selected{% endif %}>Asc</option>
+            </select>
+          </label>
+          <button type="submit">Apply</button>
+        </form>
 
-      <table>
+        <div class="table-shell__scroll">
+          <table class="drivers-table">
         <thead>
           <tr>
             <th>Driver Name</th>
@@ -96,6 +98,7 @@
             <th>License Image URL</th>
             <th>Tricycle Info</th>
             <th>Status</th>
+            <th>Lifetime Trips</th>
             <th>Verified</th>
             <th>Actions</th>
           </tr>
@@ -138,6 +141,7 @@
               {% endwith %}
             </td>
             <td>{{ driver.status }}</td>
+            <td>{{ driver.lifetime_trip_count|default:0 }}</td>
             <td>{{ driver.is_verified|yesno:"Yes,No" }}</td>
             <td>
               <form method="post" action="{% url 'user:admin_dashboard' %}">
@@ -152,69 +156,74 @@
           <tr><td colspan="9">No drivers found.</td></tr>
           {% endfor %}
         </tbody>
-      </table>
+          </table>
+        </div>
 
-      {% if drivers_page.has_other_pages %}
-      <nav class="pagination">
-        {% if drivers_page.has_previous %}
-          <a href="?page_drivers={{ drivers_page.previous_page_number }}&amp;tab=drivers">&laquo; Prev</a>
-        {% else %}
-          <span class="disabled">&laquo; Prev</span>
+        {% if drivers_page.has_other_pages %}
+        <nav class="pagination">
+          {% if drivers_page.has_previous %}
+            <a href="?page_drivers={{ drivers_page.previous_page_number }}&amp;tab=drivers">&laquo; Prev</a>
+          {% else %}
+            <span class="disabled">&laquo; Prev</span>
+          {% endif %}
+          <span class="page-info">Page {{ drivers_page.number }} of {{ drivers_page.paginator.num_pages }}</span>
+          {% if drivers_page.has_next %}
+            <a href="?page_drivers={{ drivers_page.next_page_number }}&amp;tab=drivers">Next &raquo;</a>
+          {% else %}
+            <span class="disabled">Next &raquo;</span>
+          {% endif %}
+        </nav>
         {% endif %}
-        <span class="page-info">Page {{ drivers_page.number }} of {{ drivers_page.paginator.num_pages }}</span>
-        {% if drivers_page.has_next %}
-          <a href="?page_drivers={{ drivers_page.next_page_number }}&amp;tab=drivers">Next &raquo;</a>
-        {% else %}
-          <span class="disabled">Next &raquo;</span>
-        {% endif %}
-      </nav>
-      {% endif %}
+      </div>
     </section>
 
     <section class="dashboard-section tab-panel{% if active_tab == 'passengers' %} active{% endif %}" data-tab="passengers">
       <h2>Passengers</h2>
 
-      <form method="get" class="trips-filters">
-        <input type="hidden" name="tab" value="passengers" />
-        <label>
-          Search:
-          <input type="text" name="r_search" value="{{ request.GET.r_search|default:'' }}" placeholder="name, username or email" />
-        </label>
-        <label>
-          Status:
-          <select name="r_status">
-            <option value="">All</option>
-            <option value="Available" {% if request.GET.r_status == 'Available' %}selected{% endif %}>Available</option>
-            <option value="In_trip" {% if request.GET.r_status == 'In_trip' %}selected{% endif %}>In trip</option>
-          </select>
-        </label>
-        <label>
-          Sort:
-          <select name="r_sort">
-            <option value="">Default</option>
-            <option value="name" {% if request.GET.r_sort == 'name' %}selected{% endif %}>Name</option>
-            <option value="username" {% if request.GET.r_sort == 'username' %}selected{% endif %}>Username</option>
-            <option value="loyalty" {% if request.GET.r_sort == 'loyalty' %}selected{% endif %}>Loyalty Points</option>
-            <option value="status" {% if request.GET.r_sort == 'status' %}selected{% endif %}>Status</option>
-          </select>
-        </label>
-        <label>
-          Order:
-          <select name="r_order">
-            <option value="desc" {% if request.GET.r_order != 'asc' %}selected{% endif %}>Desc</option>
-            <option value="asc" {% if request.GET.r_order == 'asc' %}selected{% endif %}>Asc</option>
-          </select>
-        </label>
-        <button type="submit">Apply</button>
-      </form>
+      <div class="table-shell">
+        <form method="get" class="trips-filters">
+          <input type="hidden" name="tab" value="passengers" />
+          <label>
+            Search:
+            <input type="text" name="r_search" value="{{ request.GET.r_search|default:'' }}" placeholder="name, username or email" />
+          </label>
+          <label>
+            Status:
+            <select name="r_status">
+              <option value="">All</option>
+              <option value="Available" {% if request.GET.r_status == 'Available' %}selected{% endif %}>Available</option>
+              <option value="In_trip" {% if request.GET.r_status == 'In_trip' %}selected{% endif %}>In trip</option>
+            </select>
+          </label>
+          <label>
+            Sort:
+            <select name="r_sort">
+              <option value="">Default</option>
+              <option value="name" {% if request.GET.r_sort == 'name' %}selected{% endif %}>Name</option>
+              <option value="username" {% if request.GET.r_sort == 'username' %}selected{% endif %}>Username</option>
+              <option value="loyalty" {% if request.GET.r_sort == 'loyalty' %}selected{% endif %}>Loyalty Points</option>
+              <option value="status" {% if request.GET.r_sort == 'status' %}selected{% endif %}>Status</option>
+            </select>
+          </label>
+          <label>
+            Order:
+            <select name="r_order">
+              <option value="desc" {% if request.GET.r_order != 'asc' %}selected{% endif %}>Desc</option>
+              <option value="asc" {% if request.GET.r_order == 'asc' %}selected{% endif %}>Asc</option>
+            </select>
+          </label>
+          <button type="submit">Apply</button>
+        </form>
 
-      <table>
+        <div class="table-shell__scroll">
+          <table>
         <thead>
           <tr>
             <th>Passenger Name</th>
             <th>Username</th>
             <th>Email</th>
             <th>Phone</th>
+            <th>Lifetime Trips</th>
           </tr>
         </thead>
         <tbody>
@@ -224,28 +233,31 @@
             <td>{{ passenger.user.username }}</td>
             <td>{{ passenger.user.email }}</td>
             <td>{{ passenger.user.phone }}</td>
+            <td>{{ passenger.lifetime_trip_count|default:0 }}</td>
           </tr>
           {% empty %}
           <tr><td colspan="4">No passengers found.</td></tr>
           {% endfor %}
         </tbody>
-      </table>
+          </table>
+        </div>
 
-      {% if passengers_page.has_other_pages %}
-      <nav class="pagination">
-        {% if passengers_page.has_previous %}
-          <a href="?page_passengers={{ passengers_page.previous_page_number }}&amp;tab=passengers">&laquo; Prev</a>
-        {% else %}
-          <span class="disabled">&laquo; Prev</span>
+        {% if passengers_page.has_other_pages %}
+        <nav class="pagination">
+          {% if passengers_page.has_previous %}
+            <a href="?page_passengers={{ passengers_page.previous_page_number }}&amp;tab=passengers">&laquo; Prev</a>
+          {% else %}
+            <span class="disabled">&laquo; Prev</span>
+          {% endif %}
+          <span class="page-info">Page {{ passengers_page.number }} of {{ passengers_page.paginator.num_pages }}</span>
+          {% if passengers_page.has_next %}
+            <a href="?page_passengers={{ passengers_page.next_page_number }}&amp;tab=passengers">Next &raquo;</a>
+          {% else %}
+            <span class="disabled">Next &raquo;</span>
+          {% endif %}
+        </nav>
         {% endif %}
-        <span class="page-info">Page {{ passengers_page.number }} of {{ passengers_page.paginator.num_pages }}</span>
-        {% if passengers_page.has_next %}
-          <a href="?page_passengers={{ passengers_page.next_page_number }}&amp;tab=passengers">Next &raquo;</a>
-        {% else %}
-          <span class="disabled">Next &raquo;</span>
-        {% endif %}
-      </nav>
-      {% endif %}
+      </div>
     </section>
     <section class="dashboard-section tab-panel{% if active_tab == 'trips' %} active{% endif %}" data-tab="trips">
       <h2>Trips</h2>
