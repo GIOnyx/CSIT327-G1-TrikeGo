@@ -19,7 +19,7 @@ from datetime import date, timedelta
 from booking_app.models import Booking, DriverLocation
 from django.core.paginator import Paginator
 from datetime import datetime
-from django.db.models import Q
+from django.db.models import Q, Count
 import json
 from django.http import JsonResponse
 from django.core.cache import cache
@@ -573,7 +573,13 @@ class AdminDashboard(View):
         page_obj = paginator.get_page(page_number)
 
         # Drivers list with filters, sorting and pagination
-        drivers_qs = Driver.objects.select_related('user').all()
+        drivers_qs = Driver.objects.select_related('user').annotate(
+            lifetime_trip_count=Count(
+                'user__driver_bookings',
+                filter=Q(user__driver_bookings__status='completed'),
+                distinct=True,
+            )
+        )
         d_search = request.GET.get('d_search')
         d_status = request.GET.get('d_status')
         d_verified = request.GET.get('d_verified')
@@ -609,7 +615,13 @@ class AdminDashboard(View):
         drivers_page = drivers_paginator.get_page(request.GET.get('page_drivers', 1))
 
         # Passengers list with filters, sorting and pagination
-        passengers_qs = Passenger.objects.select_related('user').all()
+        passengers_qs = Passenger.objects.select_related('user').annotate(
+            lifetime_trip_count=Count(
+                'user__passenger_bookings',
+                filter=Q(user__passenger_bookings__status='completed'),
+                distinct=True,
+            )
+        )
         p_search = request.GET.get('p_search')
         p_status = request.GET.get('p_status')
         p_sort = request.GET.get('p_sort')
