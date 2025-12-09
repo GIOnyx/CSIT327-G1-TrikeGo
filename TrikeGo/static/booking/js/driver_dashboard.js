@@ -469,6 +469,10 @@
                 const acceptUrl = buildAcceptRideUrl(ride.id);
                 const csrfToken = cfg.csrfToken || '';
 
+                const originalFare = ride.original_fare != null ? `₱${ride.original_fare.toFixed(2)}` : 'Fare pending';
+                const finalFare = ride.fare != null ? `₱${ride.fare.toFixed(2)}` : 'Fare pending';
+                const discountCode = ride.discount_code ? ride.discount_code : null;
+
                 card.innerHTML = `
                     <div class="driver-ride-card__top">
                         <div>
@@ -476,7 +480,9 @@
                             <span class="driver-ride-card__seats">${escapeHtml(seatsLabel)}</span>
                         </div>
                         <div class="driver-ride-card__fare">
-                            <span class="driver-ride-card__fare-amount${fareDisplay === 'Fare pending' ? ' driver-ride-card__fare-amount--pending' : ''}">${escapeHtml(fareDisplay)}</span>
+                            <div class="driver-ride-card__fare-original">Original Fare: ${escapeHtml(originalFare)}</div>
+                            ${discountCode ? `<div class="driver-ride-card__discount">Discount: ${escapeHtml(discountCode)}</div>` : ''}
+                            <div class="driver-ride-card__fare-final">Final Fare: ${escapeHtml(finalFare)}</div>
                         </div>
                     </div>
                     <div class="driver-ride-card__route">
@@ -489,7 +495,7 @@
                             <span class="driver-ride-card__value">${escapeHtml(destination)}</span>
                         </div>
                     </div>
-                    ${metaPieces.length ? `<div class="driver-ride-card__meta">${metaPieces.map((txt) => `<span class="driver-ride-card__meta-text">${escapeHtml(txt)}</span>`).join('')}</div>` : ''}
+                    ${metaPieces.length ? `<div class="driver-ride-card__meta">${metaPieces.map(txt => `<span class="driver-ride-card__meta-text">${escapeHtml(txt)}</span>`).join('')}</div>` : ''}
                     <div class="driver-ride-card__actions">
                         <button class="btn btn-secondary review-ride-btn" data-booking-id="${escapeHtml(String(ride.id))}">Review</button>
                         <form class="accept-ride-form" data-booking-id="${escapeHtml(String(ride.id))}" method="POST" action="${escapeHtml(acceptUrl)}">

@@ -71,9 +71,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 discountCodes = discountData.codes;
 
                 if (redeemSection) {
-                    // Remove old dropdown if exists
-                    const existingDropdown = document.getElementById('redeem-code-select');
-                    if (existingDropdown) existingDropdown.remove();
+                    // Reset the redeem section so no duplicated elements appear
+                    redeemSection.innerHTML = '';
+
+                    // Recreate the static title (if you have any)
+                    const title = document.createElement('h3');
+                    title.textContent = 'Redeem Points';
+                    title.style.marginBottom = '10px';
+                    redeemSection.appendChild(title);
 
                     // Create dropdown
                     const dropdown = document.createElement('select');
@@ -210,9 +215,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // OPEN PROFILE PANEL
+    // OPEN PROFILE PANEL (close other panels first)
     if (profileIcon) {
-        profileIcon.addEventListener('click', function () {
+        profileIcon.addEventListener('click', function (e) {
+            if (typeof window.closeAllPanels === 'function') window.closeAllPanels('passenger-profile-panel');
             profilePanel.style.display = 'block';
             profilePanel.setAttribute('aria-hidden', 'false');
             document.body.classList.add('history-panel-open');

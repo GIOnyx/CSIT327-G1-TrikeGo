@@ -443,13 +443,7 @@ class PassengerDashboard(View):
             booking.save()
 
             if booking.discount_code:
-            # Re-fetch the code to ensure we get the latest usage count before saving
-            # This helps prevent race conditions, though a transaction is better
                 try:
-                # We need to lock the row for atomic update in a production environment
-                # For simplicity here, we'll just increment and save.
-                # NOTE: You should ensure this is done in a transaction/atomic block 
-                # for true concurrency safety.
                     applied_code = DiscountCode.objects.get(pk=booking.discount_code.pk)
                     applied_code.uses_count += 1
                     applied_code.save(update_fields=['uses_count'])

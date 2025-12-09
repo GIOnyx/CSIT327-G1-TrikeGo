@@ -688,3 +688,23 @@ body.stats-panel-open .driver-info-card {
 @media (max-width: 800px) {
   .driver-info-card { left: 8px !important; right: 8px !important; width: auto !important; }
 }
+
+.driver-ride-carddiscount {
+    background: #f7f7f7;
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin-top: 8px;
+    margin-bottom: 8px;
+    border-left: 3px solid #4caf50;
+}
+
+.driver-ride-carddiscount-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9rem;
+    margin: 2px 0;
+}
+
+.driver-ride-card__label {
+    font-weight: 600;
+}
