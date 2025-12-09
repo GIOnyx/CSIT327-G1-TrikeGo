@@ -8,6 +8,8 @@
     <link rel="stylesheet" href="{% static 'user/css/driver_dashboard.css' %}?v=4" />
     <link rel="stylesheet" href="{% static 'wallet/css/driver_wallet_panel.css' %}?v=1" />
     <link rel="stylesheet" href="{% static 'booking/css/driver_statistics_panel.css' %}?v=1" />
+    <link rel="stylesheet" href="{% static 'booking/css/driver_profile.css' %}?v=1" />
+    <link rel="stylesheet" href="{% static 'booking/css/sidebar_fix.css' %}?v=1" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
 </head> 
 <body
@@ -21,6 +23,8 @@
     data-driver-status-endpoint="{% url 'drivers:driver_status' %}"
     data-driver-status="{% if driver_profile and driver_profile.status %}{{ driver_profile.status }}{% else %}Offline{% endif %}"
     data-active-trip="{% if active_booking %}1{% else %}0{% endif %}"
+    data-supabase-url="{{ settings.SUPABASE_URL|default:'' }}"
+    data-supabase-anon-key="{{ settings.SUPABASE_ANON_KEY|default:'' }}"
 >
     {# Compact driver dashboard: map fills main area; compact icon rail on the left; booking overlay pinned over map #}
 
@@ -39,7 +43,7 @@
             
             <div id="pin-display-section" style="display: none;">
                 <div style="background: linear-gradient(135deg, #0f2341 0%, #1a3a5f 100%); padding: 25px; border-radius: 10px; margin-bottom: 20px;">
-                    <p style="color: white; margin-bottom: 10px; font-size: 14px;">Share this PIN with passengerr:</p>
+                    <p style="color: white; margin-bottom: 10px; font-size: 14px;">Share this PIN with passenger:</p>
                     <div id="modal-pin-display" style="font-size: 48px; font-weight: bold; color: white; letter-spacing: 8px; font-family: monospace;">----</div>
                     <p style="color: white; margin-top: 10px; font-size: 14px;">⏱️ Expires in: <span id="modal-pin-timer">5:00</span></p>
                 </div>
@@ -59,7 +63,7 @@
                 <h2>Trip History</h2>
                 <p>Review past rides and payment status</p>
             </div>
-            <button id="close-driver-history-panel" aria-label="Close trip history panel">×</button>
+            <button id="close-driver-history-panel" aria-label="Close trip history panel" class="panel-close">×</button>
         </div>
         <div class="wallet-panel__body driver-history-panel__body">
             <div id="history-trips-list" class="driver-history-panel__list">
@@ -74,7 +78,7 @@
                 <h2>Wallet</h2>
                 <p>Completed trip earnings</p>
             </div>
-            <button id="close-driver-wallet-panel" aria-label="Close wallet panel">×</button>
+            <button id="close-driver-wallet-panel" aria-label="Close wallet panel" class="panel-close">×</button>
         </div>
         <div class="wallet-panel__body">
             <div id="wallet-panel-loader" class="wallet-panel__loader">
@@ -119,13 +123,13 @@
         </div>
     </div>
 
-    <div id="driver-rides-panel" class="wallet-panel driver-rides-panel" aria-hidden="true">
+            <div id="driver-rides-panel" class="wallet-panel driver-rides-panel" aria-hidden="true">
         <div class="wallet-panel__header">
             <div>
                 <h2>Available Rides</h2>
                 <p>Accept new bookings and view passenger details</p>
             </div>
-            <button id="close-driver-rides-panel" aria-label="Close rides panel">×</button>
+                    <button id="close-driver-rides-panel" aria-label="Close rides panel" class="panel-close">×</button>
         </div>
         <div class="wallet-panel__body driver-rides-panel__body">
             <div class="driver-rides-panel__list" id="rides-panel-list">
@@ -189,7 +193,7 @@
                 <h2>Performance Stats</h2>
                 <p>How you&apos;re doing this week</p>
             </div>
-            <button id="close-driver-statistics-panel" aria-label="Close statistics panel">×</button>
+            <button id="close-driver-statistics-panel" aria-label="Close statistics panel" class="panel-close">×</button>
         </div>
         <div class="wallet-panel__body">
             <div id="driver-statistics-loader" class="wallet-panel__loader" role="status" aria-live="polite">
@@ -258,6 +262,8 @@
     </div>
 
     <div id="map-container">
+    {# Include driver profile panel so clicking the sidebar opens it #}
+    {% include 'booking/driver_profile_panel.html' %}
         <div class="map-legend" id="map-legend" aria-hidden="false">
             <div class="legend-item"><span class="legend-dot driver"></span> Driver</div>
             <div class="legend-item"><span class="legend-dot pickup"></span> Pickup</div>
@@ -341,7 +347,6 @@
             <div id="itinerary-summary" class="itinerary-summary">
                 <div class="itinerary-summary-header">
                     <span><span id="summary-status-text">UP NEXT</span>: (Stop <span id="summary-stop-num">0</span> of <span id="summary-stop-total">0</span>)</span>
-                    <button id="itinerary-expand-btn" type="button" aria-expanded="false">View Full Itinerary</button>
                     <button id="open-chat-btn" class="chat-btn" type="button" title="Open trip chat">Trip Chat</button>
                 </div>
                 <h3 id="summary-action-type">--</h3>
@@ -353,10 +358,9 @@
                 <button id="summary-action-btn" data-single-click class="btn btn-success" type="button" style="width: 100%;" disabled>Start</button>
             </div>
 
-            <div id="itinerary-full" class="itinerary-full" style="display:none;">
+                <div id="itinerary-full" class="itinerary-full" style="display:none;">
                 <div class="itinerary-full-header">
                     <h3>Your Trip (<span id="full-booking-count">0</span> Bookings)</h3>
-                    <button id="itinerary-collapse-btn" type="button">Hide</button>
                 </div>
 
                 <div class="itinerary-stats">
@@ -374,7 +378,9 @@
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
     <script src="{% static 'user/js/single_click_helper.js' %}"></script>
     <script src="{% static 'booking/js/driver_dashboard_config.js' %}?v=2"></script>
+    <script src="{% static 'booking/js/panel_utils.js' %}"></script>
     <script src="{% static 'booking/js/driver_panel_manager.js' %}"></script>
+    <script src="{% static 'booking/js/driver_profile.js' %}"></script>
     <script src="{% static 'booking/js/driver_statistics_panel.js' %}?v=1"></script>
     <script src="{% static 'booking/js/driver_dashboard.js' %}?v=14"></script>
     <script src="{% static 'wallet/js/driver_wallet.js' %}?v=2"></script>

@@ -17,4 +17,7 @@ urlpatterns = [
     path('api/location/update/', views.update_driver_location, name='update_driver_location'),
     path('api/booking/<int:booking_id>/location/', views.get_driver_location, name='get_driver_location'),
     path('api/status/', views.driver_status, name='driver_status'),
+    path('profile/', views.driver_profile_panel, name='driver_profile_panel'),
+    path('profile/update-name/', views.update_driver_name, name='update_driver_name'),
+    path('profile/toggle-status/', views.toggle_driver_status, name='toggle_driver_status'),
 ]

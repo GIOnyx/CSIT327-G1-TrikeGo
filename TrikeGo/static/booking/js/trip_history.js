@@ -245,7 +245,7 @@
         const passengerHistoryList = document.getElementById('passenger-history-list');
         if (!passengerHistoryList) return;
         
-        passengerHistoryList.innerHTML = '<p style="text-align:center;padding:20px;">Loading...</p>';
+        passengerHistoryList.innerHTML = '<p style="text-align:center;padding:20px;color:#666;">Loading...</p>';
         try {
             const response = await fetch('/api/passenger/trip-history/');
             const data = await response.json();
@@ -301,7 +301,7 @@
             }
         } catch (error) {
             console.error('Error loading trip history:', error);
-            passengerHistoryList.innerHTML = '<p style="text-align:center;padding:20px;color:#dc3545;">Failed to load trips</p>';
+            passengerHistoryList.innerHTML = '<p style="text-align:center;padding:20px;color:#c0392b;">Failed to load trips</p>';
         }
     }
     
@@ -370,18 +370,28 @@
     if (passengerHistoryIcon && passengerHistoryPanel) {
         passengerHistoryIcon.addEventListener('click', function(e) {
             e.preventDefault();
-            if (typeof window.closeDriverWalletPanel === 'function') {
-                window.closeDriverWalletPanel();
-            }
-            if (window.DriverPanelManager && typeof window.DriverPanelManager.closeAll === 'function') {
-                window.DriverPanelManager.closeAll('history');
-            } else if (typeof window.closeDriverWalletPanel === 'function') {
-                window.closeDriverWalletPanel();
-            }
+            // Ensure any other open panels close first
+            try{ if (typeof window.closeAllPanels === 'function') window.closeAllPanels('passenger-history-panel'); }catch(e){}
+            // show the passenger history panel on top
             passengerHistoryPanel.style.display = 'block';
             passengerHistoryPanel.setAttribute('aria-hidden', 'false');
             document.body.classList.add('history-panel-open');
             loadPassengerTripHistory();
+            // Move active booking preview card (if present) to bottom-right like panels
+            try{
+                const preview = document.getElementById('booking-preview-card');
+                if (preview){
+                    preview.style.position = 'fixed';
+                    preview.style.right = '20px';
+                    preview.style.bottom = '20px';
+                    preview.style.left = '';
+                    preview.style.top = '';
+                    preview.style.width = '360px';
+                    preview.dataset.moved = '1';
+                    preview.classList.add('panel-aligned');
+                    preview.style.zIndex = 1700;
+                }
+            }catch(err){ console.warn('Could not move booking preview card', err); }
         });
     }
     
@@ -393,6 +403,20 @@
                 passengerHistoryPanel.setAttribute('aria-hidden', 'true');
             }
             document.body.classList.remove('history-panel-open');
+            // restore booking preview card position
+            try{
+                const preview = document.getElementById('booking-preview-card');
+                if (preview && preview.dataset.moved === '1'){
+                    preview.style.position = '';
+                    preview.style.right = '';
+                    preview.style.bottom = '';
+                    preview.style.left = '';
+                    preview.style.top = '';
+                    preview.style.width = '';
+                    preview.dataset.moved = '0';
+                    preview.classList.remove('panel-aligned');
+                }
+            }catch(err){ }
         });
     }
 })();

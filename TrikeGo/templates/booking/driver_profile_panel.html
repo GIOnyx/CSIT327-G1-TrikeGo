@@ -1,0 +1,67 @@
+{% load static %}
+<div id="driver-profile-panel" style="display:none; position: fixed; top: 20px; left: 108px; width: 380px; height: calc(100vh - 40px); background: white; border-radius: 12px; box-shadow: 0 6px 28px rgba(0,0,0,0.12); z-index: 1500; overflow: hidden;">
+    <div style="display:flex; flex-direction:column; height:100%">
+        <div style="background: linear-gradient(135deg, #0b2340 0%, #0f2341 100%); color: white; padding: 18px 20px; display:flex; justify-content:space-between; align-items:center;">
+            <h2 style="margin:0; font-size:18px; font-weight:600;">Driver Information</h2>
+            <button id="close-driver-profile-panel" class="panel-close" aria-label="Close driver profile" style="background: rgba(255,255,255,0.12); border: none; color: white; font-size: 20px; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; display:flex; align-items:center; justify-content:center;">×</button>
+        </div>
+
+        <div style="flex:1; overflow:auto; padding:16px; background:transparent;">
+                <div class="driver-history-card" style="background: linear-gradient(135deg, #0b2340 0%, #0f2341 100%); padding:14px; border-radius:10px; box-shadow:0 6px 18px rgba(0,0,0,0.06); color: #fff;">
+                    <div class="driver-history-card__header">
+                        <span class="driver-history-card__title">Driver Information</span>
+                    </div>
+                    <div class="driver-history-card__details">
+                        <div class="driver-history-card__row">
+                            <span class="driver-history-card__label">Name</span>
+                            <span class="driver-history-card__value" style="color:#fff">
+                                {% if is_driver %}
+                                    <input id="driver-name-input" type="text" value="{{ driver_profile.user.first_name }}{% if driver_profile.user.last_name %} {{ driver_profile.user.last_name }}{% endif %}" style="width:100%; padding:8px; border:1px solid #e6e6e6; border-radius:8px; font-size:15px;" />
+                                {% else %}
+                                    <span style="color:#fff">{{ driver_profile.user.first_name }}{% if driver_profile.user.last_name %} {{ driver_profile.user.last_name }}{% endif %}</span>
+                                {% endif %}
+                            </span>
+                        </div>
+
+                        <div class="driver-history-card__row">
+                            <span class="driver-history-card__label">Email</span>
+                            <span class="driver-history-card__value" id="driver-email-display" style="color:#fff">{% if driver_profile and driver_profile.user %}{{ driver_profile.user.email }}{% else %}—{% endif %}</span>
+                        </div>
+
+                        <div class="driver-history-card__row">
+                            <span class="driver-history-card__label">Phone</span>
+                            <span class="driver-history-card__value" id="driver-phone-display" style="color:#fff">{% if driver_profile and driver_profile.phone %}{{ driver_profile.phone }}{% else %}—{% endif %}</span>
+                        </div>
+
+                        <div class="driver-history-card__row">
+                            <span class="driver-history-card__label">Plate Number</span>
+                            <span class="driver-history-card__value" id="driver-plate-display" style="color:#fff">{% if driver_profile and driver_profile.plate_number %}{{ driver_profile.plate_number }}{% else %}—{% endif %}</span>
+                        </div>
+
+                        <div class="driver-history-card__row">
+                            <span class="driver-history-card__label">Status</span>
+                            <span class="driver-history-card__value" id="driver-status-display">{% if driver_profile %}{{ driver_profile.status }}{% else %}Offline{% endif %}</span>
+                        </div>
+                    </div>
+
+                    {% if is_driver %}
+                    <div style="display:flex; gap:8px; margin-top:12px;">
+                        <button id="save-driver-name-btn" class="btn btn-primary" style="flex:1;">Save</button>
+                        <button id="reset-driver-name-btn" class="btn btn-secondary" style="flex:1;">Reset</button>
+                    </div>
+                    <div style="margin-top:12px; display:flex; align-items:center; gap:10px;">
+                        <label class="switch" style="display:inline-block;">
+                            <input type="checkbox" id="driver-status-toggle" {% if driver_profile and driver_profile.status == 'Online' %}checked{% endif %} />
+                            <span class="slider"></span>
+                        </label>
+                        <span id="driver-status-label" style="font-weight:600; color:#333;">{% if driver_profile and driver_profile.status == 'Online' %}Online{% else %}Offline{% endif %}</span>
+                    </div>
+                    {% endif %}
+
+                    {% if not driver_profile %}
+                        <p style="color:#666; margin-top:12px;">No driver profile found for this account.</p>
+                    {% endif %}
+                </div>
+            </div>
+    </div>
+</div>

@@ -1,5 +1,6 @@
 (function () {
     const panels = {
+        profile: document.getElementById('driver-profile-panel'),
         wallet: document.getElementById('driver-wallet-panel'),
         history: document.getElementById('driver-history-panel'),
         rides: document.getElementById('driver-rides-panel'),
@@ -7,6 +8,7 @@
     };
 
     const bodyClasses = {
+        profile: 'profile-panel-open',
         wallet: 'wallet-panel-open',
         history: 'history-panel-open',
         rides: 'rides-panel-open',
@@ -44,7 +46,7 @@
     }
 
     function closeAll(exceptKey) {
-        ['wallet', 'history', 'rides', 'stats'].forEach((key) => {
+        ['profile','wallet', 'history', 'rides', 'stats'].forEach((key) => {
             if (key !== exceptKey) {
                 safeHide(key);
             }
@@ -53,6 +55,8 @@
 
     window.DriverPanelManager = {
         closeAll,
+        closeProfile: () => safeHide('profile'),
+        openProfile: () => { closeAll('profile'); const p = panels.profile; if (p) { p.style.display = 'block'; p.setAttribute('aria-hidden','false'); document.body.classList.add(bodyClasses.profile); } },
         closeWallet: () => safeHide('wallet'),
         closeHistory: () => safeHide('history'),
         closeRides: () => safeHide('rides'),
