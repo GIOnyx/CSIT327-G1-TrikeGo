@@ -210,9 +210,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // OPEN PROFILE PANEL
+    // OPEN PROFILE PANEL (close other panels first)
     if (profileIcon) {
-        profileIcon.addEventListener('click', function () {
+        profileIcon.addEventListener('click', function (e) {
+            if (typeof window.closeAllPanels === 'function') window.closeAllPanels('passenger-profile-panel');
             profilePanel.style.display = 'block';
             profilePanel.setAttribute('aria-hidden', 'false');
             document.body.classList.add('history-panel-open');

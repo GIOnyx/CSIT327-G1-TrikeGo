@@ -1,0 +1,54 @@
+{% load static %}
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Log in — TrikeGo</title>
+  <link rel="stylesheet" href="{% static 'user/css/landingPageStyle.css' %}?v=3" />
+  <script defer src="{% static 'user/js/app.js' %}"></script>
+  <script defer src="{% static 'user/js/login_ui.js' %}"></script>
+</head>
+<body class="auth-page">
+  <section class="hero" style="min-height:100vh">
+    <div class="hero-overlay"></div>
+    <div class="container" style="position:relative;z-index:1">
+      <div class="modal-card" style="max-width:520px;margin:10vh auto">
+        <h2>Log in to your Account</h2>
+        <p class="sub">Welcome back — enter your credentials below.</p>
+
+        <div class="provider-row">
+          <a class="btn provider">Google</a>
+          <a class="btn provider">Facebook</a>
+        </div>
+        <div class="divider"><span>or continue with email</span></div>
+
+        <form method="POST" action="{% url 'user:login' %}" class="login-form">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ request.GET.next|default:'' }}" />
+
+          <div class="form-group">
+            {{ form.username }}
+          </div>
+
+          <div class="form-group">
+            {{ form.password }}
+          </div>
+
+          <label class="remember">
+            <input type="checkbox" name="remember" /> Remember Me
+            <a href="#" class="forgot">Forgot Password?</a>
+          </label>
+
+          <div style="margin-top:16px;">
+            <button type="submit" class="btn primary wide">Log In</button>
+          </div>
+        </form>
+
+        <p class="foot">Don't have an account? <a href="{% url 'user:register' %}">Create an account</a></p>
+      </div>
+    </div>
+  </section>
+</body>
+</html>

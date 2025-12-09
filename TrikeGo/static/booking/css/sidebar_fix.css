@@ -1,0 +1,32 @@
+/* Center-align sidebar icons and ensure logout appears centered */
+.nav-bar .nav-body { display:flex; flex-direction:column; align-items:center; }
+.nav-bar .nav-center { display:flex; flex-direction:column; align-items:center; gap:12px; }
+.nav-bar .nav-center .nav-icon { display:flex; align-items:center; justify-content:center; padding:6px; }
+.nav-bar .nav-center .nav-icon img { width:36px; height:36px; }
+
+/* Ensure logout icon is centered and smaller */
+.nav-bar form.logout-form { display:flex; justify-content:center; }
+.nav-bar .logout-icon img { width:28px; height:28px; }
+
+/* Panel close button styling */
+.panel-close { display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:50%; border:none; background:rgba(255,255,255,0.06); cursor:pointer; }
+.panel-close:hover { background:rgba(255,255,255,0.12); }
+
+/* Disabled state for passenger ride icon */
+.nav-icon.disabled { opacity:0.45; pointer-events:none; cursor:default; }
+
+/* Base panel styling: default to white background and dark text */
+[id$="-panel"], .wallet-panel {
+	background: #fff !important;
+	color: #222 !important;
+	z-index: 1650;
+}
+
+/* Panel body elements should have transparent backgrounds so templates control inner backgrounds */
+[id$="-panel"] .wallet-panel__body,
+[id$="-panel"] .panel-body,
+[id$="-panel"] #passenger-history-list,
+[id$="-panel"] #passenger-profile-content {
+	background: transparent !important;
+	color: inherit !important;
+}

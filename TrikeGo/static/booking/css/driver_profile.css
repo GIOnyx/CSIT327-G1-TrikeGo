@@ -1,0 +1,57 @@
+/* Styles for Driver Profile panel to match dashboard card styling */
+.panel-aligned { z-index: 1600; box-shadow: 0 8px 30px rgba(0,0,0,0.18); border-radius: 12px; }
+#driver-profile-panel { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; }
+.driver-history-card { box-sizing: border-box; }
+.driver-history-card .driver-history-card__header { background: linear-gradient(135deg, #0b2340 0%, #0f2341 100%); color: white; padding: 10px 12px; border-radius:8px 8px 0 0; }
+.driver-history-card { border: 1px solid rgba(15,35,65,0.06); }
+.driver-history-card .driver-history-card__details { padding: 12px; }
+.driver-history-card .driver-history-card__row { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #f1f3f5; }
+.driver-history-card .driver-history-card__label { color:#666; font-size:13px; }
+.driver-history-card .driver-history-card__value { color:#0f2341; font-weight:600; }
+.profile-card input[type="text"] { box-sizing: border-box; }
+.switch { position: relative; display: inline-block; width: 46px; height: 26px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.switch .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .2s; border-radius: 20px; }
+.switch .slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 3px; bottom: 3px; background-color: white; transition: .2s; border-radius: 50%; }
+.switch input:checked + .slider { background-color: #0f2341; }
+.switch input:checked + .slider:before { transform: translateX(20px); }
+
+/* Small logout icon adjustments (keeps visuals consistent) */
+.nav-icon.logout-icon img { width: 28px; height: 28px; display: block; }
+.nav-icon.logout-icon { width: 34px; height: 34px; display:flex; align-items:center; justify-content:center; }
+
+/* Keep itinerary card compact by default on driver dashboard */
+#itinerary-card {
+	max-width: 380px;
+	width: 380px;
+}
+
+#itinerary-card .driver-card-inner,
+#itinerary-card .itinerary-summary {
+	padding: 10px;
+}
+
+#itinerary-card.collapsed {
+	border-radius: 10px;
+}
+
+/* Ensure any card rendered inside a panel uses a dark card background and white text for readability */
+[id$="-panel"] .driver-history-card,
+.wallet-panel .driver-history-card,
+[id$="-panel"] .driver-info-card,
+.wallet-panel .driver-info-card,
+[id$="-panel"] .driver-card-inner,
+.wallet-panel .driver-card-inner {
+	background: linear-gradient(135deg, #0b2340 0%, #0f2341 100%) !important;
+	color: #fff !important;
+	border: none !important;
+}
+
+[id$="-panel"] .driver-history-card *,
+.wallet-panel .driver-history-card *,
+[id$="-panel"] .driver-info-card *,
+.wallet-panel .driver-info-card *,
+[id$="-panel"] .driver-card-inner *,
+.wallet-panel .driver-card-inner * {
+	color: #fff !important;
+}

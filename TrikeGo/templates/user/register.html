@@ -7,6 +7,7 @@
   <title>Register — TrikeGo</title>
   <link rel="stylesheet" href="{% static 'user/css/landingPageStyle.css' %}?v=3" />
   <script defer src="{% static 'user/js/app.js' %}"></script>
+  <script defer src="{% static 'user/js/login_ui.js' %}"></script>
 </head>
 <body class="auth-page">
   <section class="hero" style="min-height:100vh">
@@ -64,9 +65,9 @@
             {% if user_type == 'driver' %}Next{% else %}Create Passenger Account{% endif %}
           </button>
         </form>
-        
+      
         <p class="foot">
-          Already have an account? <a href="{% url 'user:landing' %}">Log in</a>
+          Already have an account? <a href="{% url 'user:login' %}">Log in</a>
           {% if user_type == 'driver' %}
             | <a href="{% url 'user:register' %}?type=passenger">Register as Passenger</a>
           {% else %}

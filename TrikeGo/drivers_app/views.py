@@ -15,6 +15,8 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
+import os
+from supabase import create_client
 
 from booking_app.models import Booking, DriverLocation
 from booking_app.services import RoutingService
@@ -398,6 +400,118 @@ def get_driver_active_booking(request):
             'booking_id': active_booking.id,
             'booking_status': active_booking.status,
         })
+
+
+@login_required
+def driver_profile_panel(request):
+    """Render a small sidebar panel with driver profile information.
+
+    - Drivers may edit their name and toggle online/offline status.
+    - Admin and Passenger users may view the profile read-only.
+    """
+    user = request.user
+    is_driver = getattr(user, 'trikego_user', None) == 'D'
+    driver_profile = Driver.objects.filter(user=user).first()
+
+    # Try to fetch analytics/rating from Supabase if available, otherwise fall back to Django property
+    rating = {'average': 0.0, 'count': 0}
+    try:
+        supabase_url = os.environ.get('SUPABASE_URL')
+        supabase_key = os.environ.get('SUPABASE_SERVICE_KEY')
+        if supabase_url and supabase_key:
+            client = create_client(supabase_url, supabase_key)
+            resp = client.table('driver_ratings').select('average,count').eq('driver_id', getattr(user, 'id', None)).execute()
+            if resp and getattr(resp, 'data', None):
+                data = resp.data[0] if len(resp.data) > 0 else None
+                if data:
+                    rating = {'average': data.get('average', 0.0), 'count': data.get('count', 0)}
+    except Exception:
+        try:
+            if driver_profile:
+                rating = driver_profile.average_rating
+        except Exception:
+            rating = {'average': 0.0, 'count': 0}
+
+    context = {
+        'driver_profile': driver_profile,
+        'is_driver': is_driver,
+        'rating': rating,
+    }
+    return render(request, 'booking/driver_profile_panel.html', context)
+
+
+@login_required
+@require_POST
+def update_driver_name(request):
+    if getattr(request.user, 'trikego_user', None) != 'D':
+        return JsonResponse({'status': 'error', 'message': 'Permission denied.'}, status=403)
+
+    try:
+        data = json.loads(request.body.decode('utf-8')) if request.body else request.POST
+        new_name = data.get('name') if isinstance(data, dict) else request.POST.get('name')
+        if not new_name:
+            return JsonResponse({'status': 'error', 'message': 'Name required.'}, status=400)
+
+        # Update Django user fields
+        user = request.user
+        parts = new_name.strip().split(' ', 1)
+        user.first_name = parts[0]
+        user.last_name = parts[1] if len(parts) > 1 else ''
+        user.save(update_fields=['first_name', 'last_name'])
+
+        # Mirror to Supabase profile table if available
+        try:
+            supabase_url = os.environ.get('SUPABASE_URL')
+            supabase_key = os.environ.get('SUPABASE_SERVICE_KEY')
+            if supabase_url and supabase_key:
+                client = create_client(supabase_url, supabase_key)
+                client.table('profiles').upsert({
+                    'id': user.id,
+                    'full_name': f"{user.first_name} {user.last_name}".strip(),
+                }).execute()
+        except Exception:
+            pass
+
+        return JsonResponse({'status': 'success', 'name': f"{user.first_name} {user.last_name}".strip()})
+    except Exception as exc:
+        return JsonResponse({'status': 'error', 'message': str(exc)}, status=500)
+
+
+@login_required
+@require_POST
+def toggle_driver_status(request):
+    if getattr(request.user, 'trikego_user', None) != 'D':
+        return JsonResponse({'status': 'error', 'message': 'Permission denied.'}, status=403)
+
+    try:
+        data = json.loads(request.body.decode('utf-8')) if request.body else request.POST
+        new_status = data.get('status') if isinstance(data, dict) else request.POST.get('status')
+        if new_status not in ('Online', 'Offline'):
+            return JsonResponse({'status': 'error', 'message': 'Invalid status.'}, status=400)
+
+        driver = Driver.objects.filter(user=request.user).first()
+        if not driver:
+            return JsonResponse({'status': 'error', 'message': 'Driver profile not found.'}, status=404)
+
+        driver.status = new_status
+        driver.save(update_fields=['status'])
+
+        # Mirror to Supabase status table for realtime clients
+        try:
+            supabase_url = os.environ.get('SUPABASE_URL')
+            supabase_key = os.environ.get('SUPABASE_SERVICE_KEY')
+            if supabase_url and supabase_key:
+                client = create_client(supabase_url, supabase_key)
+                client.table('driver_status').upsert({
+                    'driver_id': request.user.id,
+                    'status': new_status,
+                }).execute()
+        except Exception:
+            pass
+
+        return JsonResponse({'status': 'success', 'driver_status': new_status})
+    except Exception as exc:
+        return JsonResponse({'status': 'error', 'message': str(exc)}, status=500)
     return JsonResponse({'status': 'success', 'booking_id': None})
 
 
