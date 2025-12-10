@@ -323,10 +323,25 @@
                     <div><strong>Pickup:</strong> <span id="preview-pickup">{{ booking.pickup_address }}</span></div>
                     <div><strong>Destination:</strong> <span id="preview-dest">{{ booking.destination_address }}</span></div>
                 </div>
-                <div class="driver-fare">Estimated Fare: <span id="preview-fare">{% if booking.fare %}₱{{ booking.fare }}{% else %}--{% endif %}</span></div>
+                <div class="driver-fare-after">
+                    Original Fare:
+                    <span id="fare-before">
+                        {% if booking.discount_amount and booking.discount_amount > 0 %}
+                            ₱{{ booking.fare|add:booking.discount_amount }}
+                        {% else %}
+                            ₱{{ booking.fare }}
+                        {% endif %}
+                    </span>
+                </div>
+
                 {% if booking.discount_code %}
                 <div class="driver-discount">
-                    Discount Used: <span id="used-discount">{{ booking.discount_code.code }}</span>
+                    Discount Used:
+                    <span id="used-discount">{{ booking.discount_code.code }}</span>
+                </div>
+                <div class="driver-fare">
+                    Final Fare:
+                    <span id="fare-after">₱{{ booking.fare }}</span>
                 </div>
                 {% endif %}
                 <div class="driver-info-extra">

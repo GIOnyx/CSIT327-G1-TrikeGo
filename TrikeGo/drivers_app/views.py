@@ -603,6 +603,9 @@ def available_rides_api(request):
             'estimated_distance_km': float(booking.estimated_distance) if booking.estimated_distance is not None else None,
             'estimated_duration_min': booking.estimated_duration,
             'passenger_name': passenger_name,
+            'original_fare': float((booking.fare + booking.discount_amount)) if booking.discount_amount else float(booking.fare),
+            'discount_code': booking.discount_code.code if booking.discount_code else None,
+            'discount_amount': float(booking.discount_amount) if booking.discount_amount else 0,
         }
         rides.append(ride_data)
 

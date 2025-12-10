@@ -71,9 +71,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 discountCodes = discountData.codes;
 
                 if (redeemSection) {
-                    // Remove old dropdown if exists
-                    const existingDropdown = document.getElementById('redeem-code-select');
-                    if (existingDropdown) existingDropdown.remove();
+                    // Reset the redeem section so no duplicated elements appear
+                    redeemSection.innerHTML = '';
+
+                    // Recreate the static title (if you have any)
+                    const title = document.createElement('h3');
+                    title.textContent = 'Redeem Points';
+                    title.style.marginBottom = '10px';
+                    redeemSection.appendChild(title);
 
                     // Create dropdown
                     const dropdown = document.createElement('select');
